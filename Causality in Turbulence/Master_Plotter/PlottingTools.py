@@ -1,5 +1,5 @@
 """
-This script contains the master plotter. That is, everytime an update is made to some clone of the plotter in a script, it will be copied HERE.
+This script contains plotting tools to plot causal heatmaps
 """
 
 import numpy as np

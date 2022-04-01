@@ -1,9 +1,4 @@
-# -*- coding: utf-8 -*-
 """
-Created on Tue Jan 12 10:08:19 2021
-
-@author: elopez8
-
 Calculates bin-width's using Darbellay's adaptive partition.
 
 Steps:
@@ -16,7 +11,6 @@ NOTE: This method of implenting transfer entropy only uses the data point of a c
 
 TODO: Implement multiprocessing similar to https://chriskiehl.com/article/parallelism-in-one-line
 TODO: Currently the means are being found each time. Because the mean ensures that the data is split equiprobably into two sides, there is no need to worry about the size of certain columns not being the same as others in the function continuedPartitions. In the future, this may not be the case. It'll be necessary transpose the means to avoid any issues.
-
 """
 import numpy as np
 from warnings import warn
@@ -27,12 +21,6 @@ import os
 from tqdm import tqdm
 from scipy.stats import chi2
 import timeit
-"""
-Will be needed later. To get the chi2 critical threshold for a certain degree of freedom, use the function:
-    chi2.ppf(q=0.95, df=DOF)
-where DOF are the degrees of freedom for this particular problem.
-"""
-
 
 def darbellayTE(Y, X, lag=1, conditions = None, maxNumPartitions = 10, perm=False):
     """
@@ -291,22 +279,38 @@ class Cell:
         return(digitized_data, self.partition)
 
     
-def TE_Matrix(data, lag, conditional=False, effec=False, maxNumPartitions=10, max_perm=10, effecOnly = False):
+
+
+
+def TE_Matrix(data, lag, conditional=False, effec=False, maxNumPartitions=10, max_perm=10):
     """
-    Make sure that the data is in the form of a numpy array. Each variable should be a column
+    Calculates the causal heatmap using the Darbellay-Vajda adaptive partioning method
+
+    Parameters
+    ----------
+    data : np.array
+        2D array with each column representing another DOF of the system.
+    lag: scalar
+        Time-delay for transfer entropy calculation
+    conditional: bool
+        Whether to calculate the conditional transfer entropy.
+    effec: bool
+        Whether to calculate the effective transfer entropy. This is done by shuffling the source variable.
+    maxNumPartitions: scalar
+        Maximum number of partitions for each variable
+    max_perm: scalar
+        Maximum number of permutations to use. Only applies if effec==True.
+
+
+    Returns
+    -------
+    results_matrix : np.array
+        Causal matrix with index [i,j] refering to the transfer entropy from i to j.
     """
     
-    # Convert to numpy array
+    # Convert to numpy array in case it is not
     data = np.asarray(data)
 
-    if effecOnly: 
-        assert effec==effecOnly, "If calculating only effective transfer entropy, variable 'effec' must also be True!"
-        print('\n','--'*20)
-        print('The resultant matrix will only have negative results. This is to be expected! Since you are calculating effective only, we will be subtracting from 0. In order to obtain the proper transfer entropy, you will need to manually sum this result with whatever non-effective transfer entropy has already been calculated')
-        print('--'*20,'\n')
-    
-    start_matrix=timeit.default_timer()
-    #Takes a Pandas dataframe and applies a function D_func to all columns in the dataframe
     n_col = data.shape[1]
     
     results_matrix = np.zeros(shape=(n_col, n_col))
@@ -321,13 +325,8 @@ def TE_Matrix(data, lag, conditional=False, effec=False, maxNumPartitions=10, ma
             
             # Make sure you aren't performing an operation on the same column
             if column_i != column_j:
-                startSingle = timeit.default_timer()
-                if not effecOnly:
-                    if conditional: result = darbellayTE(data[:,column_i], data[:,column_j], lag, conditions=np.delete(data,[column_i,column_j],axis=1),maxNumPartitions=maxNumPartitions)
-                    else: result=darbellayTE(data[:,column_i], data[:,column_j], lag, conditions=None, maxNumPartitions=maxNumPartitions)
-                else: result = 0
-                stopSingle = timeit.default_timer()
-                # print('Single TE Calc Time: {} seconds'.format(round(stopSingle-startSingle,2)))
+                if conditional: result = darbellayTE(data[:,column_i], data[:,column_j], lag, conditions=np.delete(data,[column_i,column_j],axis=1),maxNumPartitions=maxNumPartitions)
+                else: result=darbellayTE(data[:,column_i], data[:,column_j], lag, conditions=None, maxNumPartitions=maxNumPartitions)
                 result_perm=0
                 if effec==True:
                     permutations = np.zeros(max_perm)
@@ -341,35 +340,4 @@ def TE_Matrix(data, lag, conditional=False, effec=False, maxNumPartitions=10, ma
             j+=1
         i+=1
         
-    end_matrix=timeit.default_timer()
-    runtime=end_matrix-start_matrix
-    # print('Matrix Calculation Runtime:',runtime)
     return(results_matrix)
-  
-def heatmap2d(arr: np.ndarray):
-    plt.imshow(arr, cmap='Reds')
-    plt.colorbar()
-
-def plot_results(TE_Matrix, title, labels, save_loc=None):
-    plt.figure()
-    
-    for i in range(TE_Matrix.shape[0]):
-        for j in range(TE_Matrix.shape[1]):
-            if i==j:
-                TE_Matrix[i][j]=np.nan
-    
-    fig, ax = plt.subplots()
-    ax.set_xticks(np.arange(TE_Matrix.shape[1]), minor=False)
-    ax.set_xticklabels(labels, minor=False)
-    ax.xaxis.tick_top()
-    ax.set_yticks(np.arange(TE_Matrix.shape[1]), minor=False)
-    ax.set_yticklabels(labels, minor=False)
-    plt.title(title)
-    heatmap2d(TE_Matrix)
-    
-    if save_loc != None:
-        os.makedirs(save_loc, exist_ok=True)
-        
-        plt.savefig(save_loc + title +  '.png', bbox_inches='tight')
-        np.savetxt(save_loc + title +  '.csv', TE_Matrix, delimiter=',')
-        plt.close('all')

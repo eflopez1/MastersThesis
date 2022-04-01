@@ -8,7 +8,7 @@ A class to calculate Granger Causality
 """
 from sklearn.linear_model import LinearRegression
 import numpy as np
-from numpy import savetxt
+from tqdm import tqdm
 import pandas as pd
 import timeit
 import matplotlib.pyplot as plt
@@ -93,9 +93,7 @@ class GrangerCausality:
         Y_uni_fut_pred = uni_regress_model.predict(multi_Y)
         Y_multi_fut_pred = multi_regress_model.predict(multi_data)
         
-        #Calculate the L2 errors
-        # uni_error = (Y_fut - Y_uni_fut_pred)**2
-        # multi_error = (Y_fut - Y_multi_fut_pred )**2
+        #Calculate the errors
         uni_error = Y_fut - Y_uni_fut_pred
         multi_error = Y_fut - Y_multi_fut_pred
         
@@ -113,10 +111,9 @@ class GrangerCausality:
         
         return(GC)
     
+
+    
     def GC_Matrix(self, data, lag, conditional=True):
-        
-        if self.verbose:
-            start_matrix=timeit.default_timer()
 
         #Takes a Pandas dataframe and applies a function D_func to all columns in the dataframe
         col = data.columns
@@ -126,12 +123,10 @@ class GrangerCausality:
         
         #Iterate through the columns of your matrix (dataframe)
         i=0
-        for column_i in col:
+        for column_i in tqdm(col, desc='Column i'):
             
-            #DO IT AGAIN
             j=0
-            for column_j in col:
-                
+            for column_j in tqdm(col, desc='Column j', leave=False):
                 # Make sure you aren't performing an operation on the same column
                 if column_i != column_j:
                     if conditional:
@@ -142,9 +137,5 @@ class GrangerCausality:
                 j+=1
             i+=1
             
-        if self.verbose:
-            end_matrix=timeit.default_timer()
-            runtime=end_matrix-start_matrix
-            print('Matrix Calculation Runtime:',runtime)
         return(results_matrix)
         

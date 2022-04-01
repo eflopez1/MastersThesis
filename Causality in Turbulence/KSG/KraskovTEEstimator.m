@@ -1,29 +1,21 @@
 clc; clear all
 
 fullScriptTime = tic;
-
-% Desktop
-% Data Loc:
-beginStr = "C:\Users\elope\Documents\Turbulent Causality\Ricardo's Data\seq_";
 % JIDT Loc:
-jarLoc = "C:\Users\elope\Documents\Turbulent Causality\JIDT\infodynamics.jar";
+jarLoc = "path/to/JAR";
 
-% Workstation
-% beginStr = 'C:\Causality Results\Data\seq_';
-% jarLoc = "C:\Users\Big Gucci\Documents\Causality\infodynamics-dist-1.5\infodynamics.jar";
 
 % End data file name
 endStr = '.mat';
 
-% Parameters for run
-seqNums = [206:600];
-
+% Loops are used to iterate through several parameters
+IDs = [1,2,3]; % It is assumed that several files with unique IDs are used
 lags = [1000];
 embedding = 1; % Tau value, or embedding delay to consider
 len = 20; % Length of past to consider. Can also set to 'lag'.
 numNeighbors =  [4];
 numPermutations = 0;
-name='Seq%d_Lag%d_Embed%d_Length%d_K%d_%dPermutations';
+name='ID%d_Lag%d_Embed%d_Length%d_K%d_%dPermutations';
 
 % Loading JIDT Library
 javaaddpath(jarLoc)
@@ -32,8 +24,7 @@ javaaddpath(jarLoc)
 teCalc = javaObject('infodynamics.measures.continuous.kraskov.ConditionalTransferEntropyCalculatorKraskov');
 
 % Make sure the save folder is present
-saveLoc = 'KSGResults_13Oct2021/';
-saveLoc = 'DELETE_ME/';
+saveLoc = 'SaveFolder/';
 mkdir(saveLoc);
 contents = dir(saveLoc);
 names_completed = {contents.name};
@@ -41,23 +32,23 @@ names_completed = {contents.name};
 % Calculate and store results
 for lagIndex = 1:length(lags)
     for neighborIndex=1:length(numNeighbors)
-        for seqIndex=1:length(seqNums)
+        for IDIndex=1:length(IDs)
             
             numNeighbor = numNeighbors(neighborIndex);
             lag = lags(lagIndex);
             singleMatrixRun = tic;
-            seqNum = seqNums(seqIndex);
+            ID = seqNums(IDIndex);
             if strcmp(len,"lag")
                 len=lag;
                 len_is_lag=true;
             else
                 len_is_lag=false;
             end
-            thisName = compose(name,seqNum,lag,embedding,len,numNeighbor,numPermutations);
+            thisName = compose(name,ID,lag,embedding,len,numNeighbor,numPermutations);
             
             % Check if this file has been completed already
             if any(contains(names_completed,thisName))
-                msg = ["Skipping sequence number: ", num2str(seqNum)];
+                msg = ["Skipping ID number: ", num2str(ID)];
                 disp(msg)
                 continue
             end

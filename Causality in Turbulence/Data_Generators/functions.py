@@ -2,9 +2,6 @@
 This script contains functions which produce data for testing transfer entropy on
 """
 
-# %%
-# Test run of importations
-
 import numpy as np
 import os
 import matplotlib.pyplot as plt
@@ -141,6 +138,9 @@ def baccala5_nonlinear(N, scale=1.0):
     data = pd.DataFrame(data)
     return data
 
+
+
+
 def baccala5(N, scale=1.0):
     """
     Used in the paper Granger Causality in the Frequency Domain
@@ -182,6 +182,9 @@ def baccala5(N, scale=1.0):
     data = pd.DataFrame(data)
     return data
 
+
+
+
 def chen11_linear(N, c):
     """
     Equation 11 from Chen 2004
@@ -217,6 +220,8 @@ def chen11_linear(N, c):
     )
     data = pd.DataFrame(data)
     return data
+
+
 
 
 def chen12_nonlinear(N, c):
@@ -255,14 +260,11 @@ def chen12_nonlinear(N, c):
     data = pd.DataFrame(data)
     return data
 
+
+
 def pd_to_txt(data, title, save_loc):
     """
     Given a pandas.DataFrame, file title, and save location,
     will save the pandas dataframe in the file location.
     """
     np.savetxt(save_loc + title +'.txt', data.values, fmt='%d')
-
-
-def heatmap2d(arr: np.ndarray):
-    plt.imshow(arr, cmap='Reds')
-    plt.colorbar()

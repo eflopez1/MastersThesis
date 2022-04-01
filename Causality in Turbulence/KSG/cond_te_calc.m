@@ -2,14 +2,11 @@ clc; clear all
 
 fullScriptTime = tic;
 
-% Desktop
-% Data Loc:
-dataLoc = "C:\Users\elope\Documents\Turbulent Causality\Repository\POD_Data\Temporal Modes\";
 % JIDT Loc:
-jarLoc = "C:\Users\elope\Documents\Turbulent Causality\JIDT\infodynamics.jar";
+jarLoc = "path/to/JAR";
 
 % Defining a location to save results
-saveLoc = 'Conditional_Normal_Papana2/';
+saveLoc = 'SaveFolder/';
 mkdir(saveLoc);
 contents = dir(saveLoc);
 names_completed = {contents.name};
@@ -38,7 +35,7 @@ name='Lag%d_Embed%d_Length%d_K%d_%dPermutations';
 % Creating Data
 N = 10000;
 scale = 1.0;
-data = papana2(N,scale);
+data = papana2(N,scale); % In this example, the data generator papana is used
 data_func = 'papana2';
 [numRow, numCol] = size(data);
 numCond = numCol - 2;

@@ -26,7 +26,7 @@ class TransferEntropy:
         self.nbins = bins
         self.quantiles = quantiles
 
-    def calc_te(self, Y, X, lag, conditions=None, perm=False, portion = None, section = 1):
+    def calc_te(self, Y, X, lag, conditions=None, perm=False):
         """
         Calculates Transfer Entropy from Y to X (with conditions if wanted)
         
@@ -42,22 +42,6 @@ class TransferEntropy:
         
         N=len(X)
         if con_pres: N_conditions = min(conditions.shape)
-        
-        # If only using a portion of the data, extract that portion HERE
-        if portion != None:
-            N = floor(portion*N)
-            
-            start = N*(section-1)
-            stop = N*section
-            
-            Y = Y[start:stop]
-            X = X[start:stop]
-            conditions = conditions[start:stop]    
-            
-            # Reset the index
-            Y.reset_index(drop=True, inplace=True)
-            X.reset_index(drop=True, inplace = True)
-            conditions.reset_index(drop=True, inplace=True)
         
         # Step 1) Convert all data to its discrete form
         if self.discrete_type=='fd':
@@ -188,7 +172,7 @@ class TransferEntropy:
         
         return discrete_X
     
-    def TE_Matrix(self, data, lag, conditional=False, effec=False, numPerm=10, portion = None, section = 1, effecOnly=False):
+    def TE_Matrix(self, data, lag, conditional=False, effec=False, numPerm=10, section = 1, effecOnly=False):
         
         if effecOnly: 
             assert effec==effecOnly, "If calculating only effective transfer entropy, variable 'effec' must also be True!"
@@ -216,57 +200,18 @@ class TransferEntropy:
                     
                     #Calculating the original transfer entropy on its own
                     if not effecOnly:
-                        if conditional: result = self.calc_te(data[column_i], data[column_j], lag, conditions=data.drop(columns=[column_i,column_j]), portion=portion, section=section)
-                        else: result=self.calc_te(data[column_i], data[column_j], lag, portion=portion, section = section)
+                        if conditional: result = self.calc_te(data[column_i], data[column_j], lag, conditions=data.drop(columns=[column_i,column_j]))
+                        else: result=self.calc_te(data[column_i], data[column_j], lag)
                     else: result = 0
                     result_perm=0
                     
                     if effec==True:
                         permutations = np.zeros(numPerm)
                         for ind in range(numPerm):
-                            permutations[ind] =  self.calc_te(data[column_i], data[column_j], lag, conditions=data.drop(columns=[column_i,column_j]), perm=True, portion=portion, section=section)
+                            permutations[ind] =  self.calc_te(data[column_i], data[column_j], lag, conditions=data.drop(columns=[column_i,column_j]), perm=True)
                         result_perm = mean(permutations)
                     results_matrix[i,j] = result - result_perm
                 j+=1
             i+=1
             
         return(results_matrix)
-            
-   
-    def plot_histogram(self, vector, title='Title Missing', save_loc=None):
-        # https://stackoverflow.com/questions/27083051/matplotlib-xticks-not-lining-up-with-histogram
-        # https://seaborn.pydata.org/generated/seaborn.displot.html#seaborn.displot
-        
-        if self.discrete_type=='quantiles':
-            print('WARNING: Histogram plotting is currently not setup for plotting data discretized with quantiles.')
-        discrete_vector = self.discrete(vector)
-        plt.figure()
-        # sb.displot(vector,stat='density',bins=max(discrete_vector),kde=True)
-        plt.title(title)
-        plt.xlabel('Data Values')
-        plt.show()
-        
-        """
-        Temporarilly commented out since the histogram plot can take care of plotting histograms and a PDF, wheras the Bar_chart would leave some confusion for where the mean for the ditribution should be.
-        """
-        # counted=Counter(discrete_vector)
-        # normalize=sum(counted.values())
-        # for key in counted:
-        #     counted[key] /= normalize
-        
-        # num_bins=max(discrete_vector)
-        # plt.figure()
-        # plt.bar(counted.keys(),counted.values())
-        # plt.xticks(range(max_num+1))
-        # plt.xlabel('Discrete Value')
-        # plt.ylabel('Percentage of Value')
-        # plt.title(title)
-        
-        if save_loc != None:
-            os.makedirs(save_loc, exist_ok=True)
-        
-            plt.savefig(save_loc + title +  '.jpg')
-            plt.close('all')
-            
-        if save_loc==None:
-            plt.show()
