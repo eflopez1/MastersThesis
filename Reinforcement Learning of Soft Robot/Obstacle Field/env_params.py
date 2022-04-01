@@ -1,7 +1,3 @@
-"""
-This file contains parameters for the execution of grabbing
-"""
-
 # Basic libraries needed
 import sys
 import matplotlib.pyplot as plt
@@ -22,22 +18,11 @@ numBots = 10
 
 # Dictionary of how many time steps an episode should last,
 # based on how many bots the system is made of
-botTimestepDict = {3:40_000,
-                    10:7_000,
-                    # 10:1_000,
-                    15:6000,
-                    20:3000,
-                    25:4000,
-                    30:10_000}
+botTimestepDict = {numBots:7_000}
 
 # Dictionary of pixels-per-meter,
 # based on how many bots the system is made of.
-botPPMdict = {3:500,
-              10:150,
-              15:100,
-              20:75,
-              25:75,
-              30:55}
+botPPMdict = {numBots:150}
 
 # Environment Parameters    
 dt = 1/200.0 # Simulation timestep
@@ -76,14 +61,8 @@ kineticEnergy = False
 velocityPenalty = False
 slidingFriction = 0.2
 
-#Screen parameters (Taken from my big screen (; )
-# I.e. use this if operating on any other system
-# width = 3096
-# height = 1296
-
-# Esteban's desktop:
-width = 1382 #floor(GetSystemMetrics(0)*.9)
-height = 777 #floor(GetSystemMetrics(1)*.9)
+width = 1382 
+height = 777 
 maxNumSteps = botTimestepDict[numBots]
 ppm = botPPMdict[numBots] # Pixels Per Meter
 
@@ -93,7 +72,7 @@ convert = Convert(botPPMdict[numBots])
 render = True
 saveVideo = False
 dataCollect = False
-experimentName = "Sample Field" # WILL BE OVERWRITTEN IF 'RL_params.py' IS CALLED
+experimentName = "Enter Experiment Name" # WILL BE OVERWRITTEN IF 'RL_params.py' IS CALLED
 
 """
 Items below this comment should not have to be edited by user

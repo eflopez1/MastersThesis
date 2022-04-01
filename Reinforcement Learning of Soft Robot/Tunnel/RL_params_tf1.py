@@ -24,15 +24,11 @@ from stable_baselines.common.vec_env import SubprocVecEnv
 from env_params import maxNumSteps, numBots, save_runtime
 
 # Defining Experiment Parameters
-experimentNum = '17a_Tunnel'
+experimentNum = 'Enter Experiment Name'
         
 # Depending on how many bots there are in the system, 
 # the number of training time steps will vary
-botTrainingSteps = {#3:1_000_000,
-                    10:50_000_000,
-                    # 10:50_000_000,
-                    30:10_000_000
-                    }
+botTrainingSteps = 50_000_000
 
 divisor = 5 # Number of times to stop and check the learned behaviors
 

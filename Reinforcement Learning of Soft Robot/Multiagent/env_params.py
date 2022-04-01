@@ -1,7 +1,3 @@
-"""
-This file contains parameters for the execution of grabbing
-"""
-
 # Basic libraries needed
 import sys
 import matplotlib.pyplot as plt
@@ -29,22 +25,11 @@ numBots = 10
 
 # Dictionary of how many time steps an episode should last,
 # based on how many bots the system is made of
-botTimestepDict = {3:40_000,
-                    10:7_000,
-                    # 10:1_000,
-                    15:6000,
-                    20:3000,
-                    25:4000,
-                    30:10_000}
+botTimestepDict = {numBots:7_000}
 
 # Dictionary of pixels-per-meter,
 # based on how many bots the system is made of.
-botPPMdict = {3:500,
-              10:150,
-              15:100,
-              20:75,
-              25:75,
-              30:55}
+botPPMdict = {numBots:150}
 
 # Environment Parameters    
 dt = 1/200.0 # Simulation timestep
@@ -74,17 +59,8 @@ frame_stack = 3 # Storing 3 frames worth of information
 # Defining system radius
 R = calc_JAMoEBA_Radius(skinRadius,skinRatio,botRadius,numBots)
 
-# Target distance from X-start location
-targetDistance = R*72 # Unit: m
-
-#Screen parameters (Taken from my big screen (; )
-# I.e. use this if operating on any other system
-width = 3096
-height = 1296
-
-# Esteban's desktop:
-# width = floor(GetSystemMetrics(0)*.9)
-# height = floor(GetSystemMetrics(1)*.9)
+width = 1382 
+height = 777 
 maxNumSteps = botTimestepDict[numBots]
 ppm = botPPMdict[numBots] # Pixels Per Meter
 
@@ -94,7 +70,7 @@ convert = Convert(botPPMdict[numBots])
 render = False
 saveVideo = False
 dataCollect = False
-experimentName = "30 bots - .0005kg in" # WILL BE OVERWRITTEN IF 'grabbing_RL_params.py' IS CALLED
+experimentName = "Enter Experiment Name" # WILL BE OVERWRITTEN IF 'grabbing_RL_params.py' IS CALLED
 
 """
 Items below this comment should not have to be edited by user

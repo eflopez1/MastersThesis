@@ -1,7 +1,3 @@
-"""
-This file contains parameters for the execution of grabbing
-"""
-
 # Basic libraries needed
 import sys
 import matplotlib.pyplot as plt
@@ -21,21 +17,11 @@ numBots = 10
 
 # Dictionary of how many time steps an episode should last,
 # based on how many bots the system is made of
-botTimestepDict = {3:40_000,
-                    10:3_000,
-                    15:6000,
-                    20:3000,
-                    25:4000,
-                    30:2_000}
+botTimestepDict = {numBots:3000}
 
 # Dictionary of pixels-per-meter,
 # based on how many bots the system is made of.
-botPPMdict = {3:500,
-              10:150,
-              15:100,
-              20:75,
-              25:75,
-              30:150}
+botPPMdict = {numBots:150}
 
 # Environment Parameters    
 dt = 1/200.0 # Simulation timestep
@@ -61,19 +47,8 @@ slidingFriction = 0.2
 # Defining system radius
 R = calc_JAMoEBA_Radius(skinRadius,skinRatio,botRadius,numBots)
 
-# Target distance from X-start location
-targetDistance = R*72 # Unit: m
-
-#Screen parameters (Taken from my big screen (; )
-# I.e. use this if operating on any other system
-# width = 3096
-# height = 1296
 width = 1440
 height = 1080
-
-# Esteban's desktop:
-# width = floor(GetSystemMetrics(0)*.9)
-# height = floor(GetSystemMetrics(1)*.9)
 maxNumSteps = botTimestepDict[numBots]
 ppm = botPPMdict[numBots] # Pixels Per Meter
 
@@ -83,7 +58,7 @@ convert = Convert(botPPMdict[numBots])
 render = True
 saveVideo = False
 dataCollect = False
-experimentName = "Testing if Rolling Occurs" # WILL BE OVERWRITTEN IF 'grabbing_RL_params.py' IS CALLED
+experimentName = "Enter Experiment Name" # WILL BE OVERWRITTEN IF 'grabbing_RL_params.py' IS CALLED
 
 """
 Items below this comment should not have to be edited by user

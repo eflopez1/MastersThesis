@@ -27,21 +27,12 @@ numBots = 10
 
 # Dictionary of how many time steps an episode should last,
 # based on how many bots the system is made of
-botTimestepDict = {3:40_000,
-                    10:1_000,   
-                    15:6000,
-                    20:3000,
-                    25:4000,
-                    30:500}
+botTimestepDict = {numBots:1_000}
+
 
 # Dictionary of pixels-per-meter,
 # based on how many bots the system is made of.
-botPPMdict = {3:500,
-              10:500,
-              15:100,
-              20:75,
-              25:75,
-              30:250}
+botPPMdict = {numBots:500}
 
 # Environment Parameters
 dt = 1/200.0 # Simulation timestep
@@ -72,17 +63,8 @@ binding_spring_K = .5
 # Defining system radius
 R = calc_JAMoEBA_Radius(skinRadius,skinRatio,botRadius,numBots)
 
-#Screen parameters (Taken from my big screen (; )
-# I.e. use this if operating on any other system
-# width = 3096
-# height = 1296
-
 width = 1440
 height=1080
-
-# Esteban's desktop:
-# width = floor(GetSystemMetrics(0)*.9)
-# height = floor(GetSystemMetrics(1)*.9)
 maxNumSteps = botTimestepDict[numBots]
 ppm = botPPMdict[numBots] # Pixels Per Meter
 
@@ -92,7 +74,7 @@ convert = Convert(botPPMdict[numBots])
 render = False
 saveVideo = False
 dataCollect = False
-experimentName = "Rew Test Check 7 Feb" # Make sure the name has {} to allow for additional formatting!
+experimentName = "Enter Experiment Name" # Make sure the name has {} to allow for additional formatting!
 
 """
 _____________________________________________________________________

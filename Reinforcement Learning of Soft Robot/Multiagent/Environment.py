@@ -1,30 +1,19 @@
-
-"""
-Use this in the future to add collision detection in the observation space:
-    https://stackoverflow.com/questions/50815789/non-colliding-objects-which-has-colliding-pairs-pymunk-pygame
-    
-This example shows how to draw collisions:
-    https://github.com/viblo/pymunk/blob/master/examples/contact_and_no_flipy.py
-"""
-
 import pymunk
 import pygame
-import sys
 import numpy as np
-from numpy import sin, cos, sqrt, log
+from numpy import sin, cos
 from numpy.linalg import norm
 from tqdm import tqdm
 from math import floor
 from gym import spaces
 import matplotlib.pyplot as plt
 from datetime import datetime
-from pettingzoo.utils import wrappers, ParallelEnv, agent_selector, from_parallel
+from pettingzoo.utils import wrappers, ParallelEnv, from_parallel
 from shutil import rmtree
 import glob # For creating videos
 import cv2 # For creating videos
 from warnings import warn
 import os
-import pdb
 
 def reg_env(dt, ppm, screenHeight, screenWidth, maxNumSteps, R, 
                  numBots, botMass, botRadius, skinRadius, skinMass, skinRatio, 
@@ -176,6 +165,9 @@ class parallel_env(ParallelEnv):
         self.state_size = self.numBots*num_obs # botVel (x,y), botExternalContact(x,y)
         self.action_size = self.numBots*2
         force_low, force_high = -1.0, 1.0  # This should be between [-1,1] since we plan on multiplying with a force gain, anyways
+
+        # Definine the observation function
+        self.observationFunc = self.observation_shallow
 
         self.possible_agents = ['Bot_'+str(r) for r in range(numBots)]
         
@@ -369,7 +361,7 @@ class parallel_env(ParallelEnv):
         
         # Creating required attributes as defined by PettingZoo
         self.agents = self.possible_agents
-        observations = {agent: self.observation(agent) for agent in self.agents}
+        observations = {agent: self.observationFunc(agent) for agent in self.agents}
 
         # Getting initial system info for reward processing
         _, self.previousDistance = self.systemInfo()
@@ -425,7 +417,7 @@ class parallel_env(ParallelEnv):
         
         # Gather observations of the system
         # Remember, this should be a dictionary!    
-        observations = {agent: self.observation(agent) for agent in self.agents}
+        observations = {agent: self.observationFunc(agent) for agent in self.agents}
 
         # We can still get system level observation
         systemCenter, distanceToTarget = self.systemInfo()
@@ -463,7 +455,7 @@ class parallel_env(ParallelEnv):
         return observations, rewards, dones, infos
     
     
-    def observation(self, agent):
+    def observation_shallow(self, agent):
         """
         THIS IS THE SHALLOW OBSERVATION SPACE
 
@@ -499,53 +491,53 @@ class parallel_env(ParallelEnv):
         return obs
 
 
-    # def observation(self, agent):
-    #     """
-    #     THIS IS THE DENSE OBSERVATION SPACE
+    def observation_dense(self, agent):
+        """
+        THIS IS THE DENSE OBSERVATION SPACE
 
-    #     Takes the name of an agent and returns the observation for that agent
-    #     """
+        Takes the name of an agent and returns the observation for that agent
+        """
         
-    #     # First we need to get the specific bot we are interested in
-    #     start = agent.find('_')+1
-    #     whichBot = int(agent[start:])
-    #     bots = np.roll(self.bots, -whichBot)
+        # First we need to get the specific bot we are interested in
+        start = agent.find('_')+1
+        whichBot = int(agent[start:])
+        bots = np.roll(self.bots, -whichBot)
 
-    #     bot_pos = np.zeros((self.numBots,2))
-    #     bot_vel = np.zeros((self.numBots,2))
-    #     for index, bot in enumerate(bots):
-    #         # Position
-    #         currentBotPos = np.asarray(bot.body.position)
-    #         currentBotPos = self.convert.Pixels2Meters(currentBotPos)
+        bot_pos = np.zeros((self.numBots,2))
+        bot_vel = np.zeros((self.numBots,2))
+        for index, bot in enumerate(bots):
+            # Position
+            currentBotPos = np.asarray(bot.body.position)
+            currentBotPos = self.convert.Pixels2Meters(currentBotPos)
 
-    #         # Velocity
-    #         currentBotVel = np.asarray(bot.body.velocity)
-    #         currentBotVel = self.convert.Pixels2Meters(currentBotVel)
+            # Velocity
+            currentBotVel = np.asarray(bot.body.velocity)
+            currentBotVel = self.convert.Pixels2Meters(currentBotVel)
 
-    #         # Adding to list
-    #         bot_pos[index,:] = currentBotPos
-    #         bot_vel[index,:] = currentBotVel
+            # Adding to list
+            bot_pos[index,:] = currentBotPos
+            bot_vel[index,:] = currentBotVel
 
 
-    #     # Get position
-    #     pos_pixel = np.asarray(bot.body.position)
-    #     pos = self.convert.Pixels2Meters(pos_pixel)
-    #     pos[0] /= self.width
-    #     pos[1] /= self.height
+        # Get position
+        pos_pixel = np.asarray(bot.body.position)
+        pos = self.convert.Pixels2Meters(pos_pixel)
+        pos[0] /= self.width
+        pos[1] /= self.height
 
-    #     # Get velocity of bot
-    #     vel_pixels = np.asarray([bot.body.velocity])
-    #     vel = self.convert.Pixels2Meters(vel_pixels)
+        # Get velocity of bot
+        vel_pixels = np.asarray([bot.body.velocity])
+        vel = self.convert.Pixels2Meters(vel_pixels)
 
-    #     # Get whether the bot is in contact
-    #     X_force = self.extForcesX[whichBot] / self.forceGain
-    #     Y_force = self.extForcesY[whichBot] / self.forceGain
-    #     extForce = np.abs(np.array([X_force, Y_force]))
+        # Get whether the bot is in contact
+        X_force = self.extForcesX[whichBot] / self.forceGain
+        Y_force = self.extForcesY[whichBot] / self.forceGain
+        extForce = np.abs(np.array([X_force, Y_force]))
 
-    #     # obs = np.concatenate((pos.flatten(), vel.flatten(), extForce.flatten()))
-    #     obs = np.concatenate((vel.flatten(), extForce.flatten()))
+        # obs = np.concatenate((pos.flatten(), vel.flatten(), extForce.flatten()))
+        obs = np.concatenate((vel.flatten(), extForce.flatten()))
 
-    #     return obs
+        return obs
 
 
     def systemInfo(self, rel_center = True):

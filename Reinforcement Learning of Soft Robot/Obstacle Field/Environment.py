@@ -1,31 +1,22 @@
-
 """
-Use this in the future to add collision detection in the observation space:
-    https://stackoverflow.com/questions/50815789/non-colliding-objects-which-has-colliding-pairs-pymunk-pygame
-    
-This example shows how to draw collisions:
-    https://github.com/viblo/pymunk/blob/master/examples/contact_and_no_flipy.py
+There are many parameters in the environment which were not mentioned in the thesis. These parameters represent ideas which were tested at some point but did not produce meaningful enough results for further analysis.
 """
 
-from grpc import access_token_call_credentials
 import pymunk
 import pygame
-import sys
 import numpy as np
 from tqdm import tqdm
-from numpy import sin, cos, sqrt, log
+from numpy import sin, cos
 from numpy.linalg import norm
 from math import floor
 from gym import spaces, Env
 import matplotlib.pyplot as plt
 from datetime import datetime
-from scipy.interpolate import RegularGridInterpolator
 from shutil import rmtree
 import glob # For creating videos
 import cv2 # For creating videos
 from warnings import warn
 import os
-import pdb
 
 class pymunkEnv(Env):
     
@@ -108,7 +99,6 @@ class pymunkEnv(Env):
         self.velocityPenalty = velocityPenalty
         if self.velocityPenalty:
             self.velRecent = np.zeros(30) # We will store 30 timesteps worth of information
-
         # self.state_size = 5 # Single bot observation ## self.getObSingle
         self.state_size = self.numBots*5 # botRePosition (x,y), botContacts ## self.getOb()
         # self.state_size = 2 + self.numBots # Center Position, bot contacts ## self.getOb2()
@@ -265,24 +255,24 @@ class pymunkEnv(Env):
             add_sliding_friction(self.space, self.jamoeba, self.slidingFriction)
 
         #### Obstacle field
-        # obsRadius = 2*R
-        # fieldWidth = targetDistance - 4*obsRadius
-        # fieldHeight = height-2*obsRadius
-        # minObsDistance = 4.5*R # Spaced out Circles
-        # # minObsDistance = 6*R # Spaced out Stars
-        # poisSamples = Poisson_Sampling(minObsDistance, fieldWidth, fieldHeight)
-        # obsCoordinates = poisSamples.get_samples()
-        # obsKwargs = {'space':self.space,
-        #             'obstacleCoordinates': obsCoordinates,
-        #                 'obsRadius':obsRadius,
-        #                 'friction':self.botFriction,
-        #                 'star':True,
-        #                 'report_points':self.report_all_data}
-        # if self.report_all_data:
-        #     obstacles, self.star_points = createObstacleField(**obsKwargs)
-        #     self.convertStarPoints()
-        # else:
-        #     obstacles = createObstacleField(**obsKwargs)
+        obsRadius = 2*R
+        fieldWidth = targetDistance - 4*obsRadius
+        fieldHeight = height-2*obsRadius
+        minObsDistance = 4.5*R # Spaced out Circles
+        # minObsDistance = 6*R # Spaced out Stars
+        poisSamples = Poisson_Sampling(minObsDistance, fieldWidth, fieldHeight)
+        obsCoordinates = poisSamples.get_samples()
+        obsKwargs = {'space':self.space,
+                    'obstacleCoordinates': obsCoordinates,
+                        'obsRadius':obsRadius,
+                        'friction':self.botFriction,
+                        'star':True,
+                        'report_points':self.report_all_data}
+        if self.report_all_data:
+            obstacles, self.star_points = createObstacleField(**obsKwargs)
+            self.convertStarPoints()
+        else:
+            obstacles = createObstacleField(**obsKwargs)
 
         #### Create Walls
         wallKwargs={'space':self.space,
@@ -450,14 +440,6 @@ class pymunkEnv(Env):
             self.space.step(self.dt)
             self.time += self.dt
 
-            # Verify that the relative position is still farther than the system's radius
-            # systemCenter_now = self.getSystemCenter(true_pos=True, pixels=True)
-            # distance = np.linalg.norm(rel_pos-systemCenter_now)
-            # distance = self.convert.Pixels2Meters(distance)
-            # if distance <= self.R: # If we are significantly close to the decided position, then we stop moving towards it
-            #     print('Reached Target')
-            #     break
-
         # Note the important difference between timestep and time!
         self.timestep += 1
 
@@ -532,7 +514,6 @@ class pymunkEnv(Env):
         # Normalizing observation
         botPos[:,0]=botPos[:,0]/(self.width) #Normalizing X-Coordinate
         botPos[:,1]=botPos[:,1]/(self.height)                  #Normalizing Y-Coordinate
-        # botVel /= self.maxVelocity                             #Normalizing Velocity
         
         extForces = np.abs(np.concatenate((self.extForcesX, self.extForcesY)))
         extForces /= self.forceGain
@@ -751,7 +732,6 @@ class pymunkEnv(Env):
 
     def reportContact(self, contactPair, impulse):
         botIndex = max(contactPair)
-        # Doing a += so that as multiple contacts occur over the many timesteps, we add them
         self.extForcesX[botIndex-2] = impulse[0] / self.dt
         self.extForcesY[botIndex-2] = impulse[1] / self.dt
         self.botContacts[botIndex-2] = 1
@@ -1234,78 +1214,6 @@ class starObstacle:
                 space.add(seg)
 
         self.star_points = polyPoints
-                
-
-# def connectBalls(space, theta1, theta2, b1, b2, rest_length, 
-#                   spring_stiffness, spring_damping, maxSeparation):
-#     springConstraint = pymunk.DampedSpring(b1.body, b2.body, 
-#                                            (-b1.radius*np.sin(theta1), b1.radius*np.cos(theta1)), (b2.radius*np.sin(theta2), -b2.radius*np.cos(theta2)), 
-#                                             rest_length, spring_stiffness, spring_damping)
-#     slideJoint = pymunk.SlideJoint(b1.body, b2.body, 
-#                                    (-b1.radius*np.sin(theta1), b1.radius*np.cos(theta1)), (b2.radius*np.sin(theta2), -b2.radius*np.cos(theta2)), 
-#                                    0, maxSeparation)
-#     space.add(springConstraint, slideJoint)
-#     return None
-
-# def createJamoeba(space, systemCenterLocation, systemRadius, 
-#                   numBots, botMass, botRadius, 
-#                   skinMass, skinRadius, skinRatio, 
-#                   botFriction, springK, springB, springRL, 
-#                   maxSeparation, inRadius, inMass, inFriction,  
-#                   percentInteriorRemove = 0, botCollisionIntStart = 2):
-#     xCenter = systemCenterLocation[0]
-#     yCenter = systemCenterLocation[1]
-    
-#     collisionType = botCollisionIntStart
-    
-#     bots = []
-#     interiorParticles = []
-#     membrane = []
-#     skinParticles = []
-    
-#     # Get interior particles
-#     gran_per_ring, in_rings_radius = interiorPattern(systemRadius, inRadius, botRadius, percentInteriorRemove)
-    
-#     #Parameter for skins
-#     t = (2*np.pi/numBots)/(skinRatio+1)
-    
-#     for i in range(numBots):
-#         theta = i*2*np.pi/numBots
-#         x = xCenter + systemRadius*np.cos(theta)
-#         y = yCenter + systemRadius*np.sin(theta)
-        
-#         bot = Ball(space, (x,y), botRadius, botMass, botFriction, collisionType, color=(255,0,0,255))
-#         collisionType += 1
-#         bots.append(bot)
-#         membrane.append(bot)
-        
-#         # Skin particles
-#         for j in range(1,skinRatio+1):
-#             x = xCenter + systemRadius*np.cos(theta + j*t)
-#             y = yCenter + systemRadius*np.sin(theta + j*t)
-#             skin = Ball(space, (x,y), skinRadius, skinMass, botFriction, color=(0,0,255,255))
-#             membrane.append(skin)
-#             skinParticles.append(skin)
-            
-#     numBodies = len(membrane)
-#     for index, body in enumerate(membrane):
-#         if index < (numBodies-1):
-#             connectBalls(space, t*index, t*(index+1), body, membrane[index+1], springRL, springK, springB, maxSeparation)
-#         else:
-#             connectBalls(space, t*index, 0, body, membrane[0], springRL, springK, springB, maxSeparation)
-    
-#     # Create Interiors
-#     for index, in_ring in enumerate(gran_per_ring):
-#         radius = in_rings_radius[index]
-#         for j in range(in_ring):
-#             in_theta = j*2*np.pi/in_ring
-#             x = xCenter + radius*np.cos(in_theta)
-#             y = yCenter + radius*np.sin(in_theta)
-            
-#             interiorParticle = Ball(space, (x,y), inRadius, inMass, inFriction)
-#             interiorParticles.append(interiorParticle)
-            
-#     return bots, skinParticles, interiorParticles
 
 
 def connectBalls(space, theta1, theta2, b1, b2, rest_length, spring_stiffness, 

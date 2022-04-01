@@ -1,7 +1,3 @@
-"""
-This file contains all parameters needed for running reinforcememt learning training on the grabbing environmnet
-"""
-
 # Import standard libraries
 import time
 from datetime import date
@@ -24,7 +20,7 @@ from stable_baselines.common.vec_env import SubprocVecEnv
 from env_params import maxNumSteps, numBots
 
 # Defining Experiment Parameters
-experimentNum = "10d_entropy_framestacking_cont"
+experimentNum = "Enter Experiment Name"
         
 # Depending on how many bots there are in the system, 
 # the number of training time steps will vary

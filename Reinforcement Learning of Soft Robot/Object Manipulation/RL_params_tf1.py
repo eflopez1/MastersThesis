@@ -23,18 +23,11 @@ from stable_baselines.common.vec_env import SubprocVecEnv
 from env_params import maxNumSteps, numBots
 
 # Defining Experiment Parameters
-experimentNum = '32_spin'
+experimentNum = 'Enter Experiment Name'
         
 # Depending on how many bots there are in the system, 
 # the number of training time steps will vary
-botTrainingSteps = {#3:1_000_000,
-                    # 10:100_000,
-                    10:40_000_000,
-                    # 15:20_000_000,
-                    # 30:30_000_000}
-                    # 30:50_000_000}
-                    30:10_000_000
-                    }
+botTrainingSteps = 40_000_000
 
 divisor = 4
 

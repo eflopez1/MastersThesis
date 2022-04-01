@@ -1,9 +1,3 @@
-# %% 
-# Main cell.
-"""
-Main execution script for training the grabbing environment
-"""
-
 if __name__ == '__main__':
     # Importing Environment and environment dependencies
     from env_params import *
@@ -54,24 +48,17 @@ if __name__ == '__main__':
     learn_start = time.time()
 
     # Create the model
-    # model = PPO2('MlpPolicy', training_env, verbose=1, policy_kwargs=policy_kwargs,
-    #                 gamma=gamma, 
-    #                 n_steps = n_steps, 
-    #                 ent_coef = ent_coef,
-    #                 learning_rate = learning_rate,
-    #                 vf_coef = vf_coef,
-    #                 nminibatches = batch_size,
-    #                 noptepochs = noptepochs,
-    #                 cliprange = cliprange,
-    #                 tensorboard_log = savefile,
-    #                 seed = seed)
-
-    # Loading model to continue training
-    model = PPO2.load(
-        "Experiment 10d_entropy_framestacking 2022-02-07/rl_model_5700000_steps.zip",
-        env = training_env
-    )
-    model.tensorboard_log = savefile
+    model = PPO2('MlpPolicy', training_env, verbose=1, policy_kwargs=policy_kwargs,
+                    gamma=gamma, 
+                    n_steps = n_steps, 
+                    ent_coef = ent_coef,
+                    learning_rate = learning_rate,
+                    vf_coef = vf_coef,
+                    nminibatches = batch_size,
+                    noptepochs = noptepochs,
+                    cliprange = cliprange,
+                    tensorboard_log = savefile,
+                    seed = seed)
 
     iterations = training_timesteps//sub_timesteps
     for iter in range(iterations):

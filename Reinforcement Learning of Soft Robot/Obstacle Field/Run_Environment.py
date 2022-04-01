@@ -1,4 +1,3 @@
-# %% Main cell
 """
 This script can be used to run an environment WITHOUT using any learned agent.
 
@@ -24,9 +23,6 @@ action=[]
 for num in range(numBots*2):
     if num%2==0: action.append(1) # Fx
     else: action.append(0)        # Fy
-
-# Used for new action-space
-# action = [1,0]
 
 for _ in range(1):
     plt.close('all')
@@ -56,4 +52,3 @@ for _ in range(1):
         createVideo(env.saveFolder, env.videoFolder, experimentName, (width, height))
     env.close()
     plt.close('all')
-# %%

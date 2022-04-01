@@ -25,7 +25,7 @@ from stable_baselines.common.vec_env import SubprocVecEnv
 from env_params import maxNumSteps, numBots
 
 # Defining Experiment Parameters
-experimentNum = '22_NumStep1_IncreasedReward'
+experimentNum = 'Enter Experiment Name'
 
 # Depending on how many bots there are in the system, 
 # the number of training time steps will vary

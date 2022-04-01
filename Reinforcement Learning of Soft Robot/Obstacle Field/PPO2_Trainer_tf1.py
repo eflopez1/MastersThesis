@@ -1,8 +1,3 @@
-# %% Main cell
-"""
-Main execution script for training the obstacle field environment
-Uses stable baselines 2 as their means of describing the environment.
-"""
 
 if __name__ == '__main__':
     # Importing Environment and environment dependencies
@@ -62,13 +57,6 @@ if __name__ == '__main__':
                 tensorboard_log = savefile,
                 seed = seed,
                 policy_kwargs=policy_kwargs)
-
-    # Continuing training of some other model
-    # model = PPO2.load(
-    #     "Experiment 21a_ModObsact_NumStep200 2022-02-28/rl_model_400000_steps.zip",
-    #     env=training_env
-    # )
-    # model.tensorboard_log = savefile
 
     # Iterate through each sub timestep training
     iterations = training_timesteps//sub_timesteps

@@ -1,6 +1,3 @@
-# %% 
-# Main cell
-
 if __name__ == '__main__':
     # Importing Environment and environment dependencies
     from env_params import *
@@ -55,15 +52,7 @@ if __name__ == '__main__':
         cliprange = cliprange,
         tensorboard_log = savefile,
         seed = seed,
-        policy_kwargs=policy_kwargs)
-
-    # Finishing up the model from the last experiment, 
-    # which failed to complete training
-    # model = PPO2.load(
-    #     "Experiment 16e_entropy.01 2022-01-25/Iteration_3_agent.zip",
-    #     env = training_env
-    # )
-    model.tensorboard_log = savefile
+        policy_kwargs=policy_kwargs)\
 
     # Iterate through each sub timestep training
     iterations = training_timesteps//sub_timesteps
