@@ -16,14 +16,6 @@ import Environment as master_env
 # This key parameter affects others, so it is kept separate from the rest.
 numBots = 10
 
-# Dictionary of how many time steps an episode should last,
-# based on how many bots the system is made of
-botTimestepDict = {numBots:7_000}
-
-# Dictionary of pixels-per-meter,
-# based on how many bots the system is made of.
-botPPMdict = {numBots:150}
-
 # Environment Parameters    
 dt = 1/200.0 # Simulation timestep
 numStepsPerStep = 1
@@ -63,12 +55,12 @@ slidingFriction = 0.2
 
 width = 1382 
 height = 777 
-maxNumSteps = botTimestepDict[numBots]
-ppm = botPPMdict[numBots] # Pixels Per Meter
+maxNumSteps = 7000
+ppm = 150
 
 # Parameters for specifiying the system and target locations at start
 # If you do not want to specify these, simply set them as 'None'
-convert = Convert(botPPMdict[numBots])
+convert = Convert(ppm)
 render = True
 saveVideo = False
 dataCollect = False

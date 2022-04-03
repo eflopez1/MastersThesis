@@ -25,10 +25,6 @@ from env_params import maxNumSteps, numBots, save_runtime
 
 # Defining Experiment Parameters
 experimentNum = 'Enter Experiment Name'
-        
-# Depending on how many bots there are in the system, 
-# the number of training time steps will vary
-botTrainingSteps = 50_000_000
 
 divisor = 5 # Number of times to stop and check the learned behaviors
 
@@ -46,7 +42,7 @@ noptepochs = 10                                # Number of epochs each update
 cliprange = 0.2                                # Cliprange for PPO
 seed = 12345                                   # Seed for neural network initialization
 nEnvs = 4                                      # Number of parallel environments
-training_timesteps = botTrainingSteps[numBots] # number of timesteps to train the environment agent for
+training_timesteps = 50_000_000 # number of timesteps to train the environment agent for
 experimentName = "Experiment_{}".format(experimentNum)
 
 # Parameters for callback

@@ -1,7 +1,4 @@
-# -*- coding: utf-8 -*-
 """
-Created on Sat Sep 19 16:22:30 2020
-
 @author: elopez8
 
 A class to calculate Granger Causality
@@ -13,20 +10,12 @@ import pandas as pd
 import timeit
 import matplotlib.pyplot as plt
 import os
-import pdb
 
 class GrangerCausality:
-    def __init__(self, discrete_type=None, bins=10, quantiles=[25,75], verbose=False):
+    def __init__(self, verbose=False):
         """
-        discrete_type: 'bins', 'quantiles', or None. If None, does not discretize the data.
-        bins: number of equal-width bins for calculatings.
-        quantiles: percentile locations of quantiles.
-        
         If verbose=True, information will be shared while calculations are performed.
         """
-        self.discrete_type=discrete_type
-        self.bins=bins
-        self.quantiles=quantiles
         self.verbose=verbose
         
     def linear_GC(self, X, Y, conditions=None, lag=1):
@@ -41,9 +30,6 @@ class GrangerCausality:
         
         # Step 0) Prepare data by discretizing.
         n = len(X)
-        if self.discrete_type is not None:
-            X=self.discrete(X)
-            Y=self.discrete(Y)
         
         # Make vectors of appropriate length and position for the given # of lag.
         X_past=[]

@@ -17,13 +17,10 @@ from stable_baselines.bench import Monitor
 from stable_baselines.common.vec_env import SubprocVecEnv
 
 # Loading info from environment needed in this list
-from env_params import maxNumSteps, numBots
+from env_params import maxNumSteps
 
 # Defining Experiment Parameters
 experimentNum = "Enter Experiment Name"
-        
-# Depending on how many bots there are in the system, 
-# the number of training time steps will vary
 
 training_timesteps = 4_300_000
 
