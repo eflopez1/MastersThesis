@@ -15,14 +15,11 @@ TODO: Currently the means are being found each time. Because the mean ensures th
 import numpy as np
 from warnings import warn
 from itertools import product
-import matplotlib.pyplot as plt
 from math import log2
-import os
 from tqdm import tqdm
 from scipy.stats import chi2
-import timeit
 
-def darbellayTE(Y, X, lag=1, conditions = None, maxNumPartitions = 10, perm=False):
+def darbellayTE(Y, X, lag=1, conditions = None, maxNumPartitions = 10):
     """
     Parameters
     ----------
@@ -57,14 +54,11 @@ def darbellayTE(Y, X, lag=1, conditions = None, maxNumPartitions = 10, perm=Fals
     
     # Get sizes of arrays
     N = len(X)
-    if con_pres: 
-        N_conditions = min(conditions.shape)
     
     # Step 1) Organize the arrays
     Y_past = Y[:N-lag]
     X_past = X[:N-lag]
     X_fut  = X[lag:]
-    if perm: np.random.shuffle(Y_past)
     if con_pres:
         conditions_past=conditions[:N-lag, :]
         conditions_past = conditions_past.T
@@ -115,7 +109,7 @@ def continuedPartitions(group, max_num_part=10):
     ----------
     group : np.array
         The matrix of data that will be sub partitioned until all.
-    max_num_part : TYPE, optional
+    max_num_part : int, optional
        Maximum number of partitions in any spatial direction. The default is 10.
 
     Returns
@@ -162,9 +156,9 @@ def continuedPartitions(group, max_num_part=10):
             if partition:
                 # Include these means into the edges, as they have been accepted.
                 edges = np.sort((np.vstack((edges, cell.means))), axis=0) # But we must check if there are repeated values here
-                newCells, cellCounts = np.unique(Ddata, return_counts = True)
+                newCells, _ = np.unique(Ddata, return_counts = True)
                 
-                for index, newCell in enumerate(newCells):
+                for newCell in newCells:
                     key = keys[newCell] # Recall that the newCell is simply which combination of 0s and 1s from the keys matched the appropriate location.
 
                     # Now we must go through the main cells means and figure out what the upper and lower bounds for this group will be
@@ -204,9 +198,6 @@ def continuedPartitions(group, max_num_part=10):
             # the bottom will only be true if all dimensions have been partitioned at leas
             numPartitions = np.where(checks>(max_num_part),1,0)
             if 0 not in numPartitions:
-                # print('--'*20)
-                # print('Number of max partitions reached in each dimension')
-                # print('--'*20)
                 break
             
     return cells, edges
@@ -247,7 +238,6 @@ class Cell:
         """
         self.partition = False
         n = self.data.shape[1]
-        num_data_points = self.data.shape[0]
         num_cells = 2**n
         DOF = num_cells -1 # The degrees of freedom in this case
         
@@ -282,7 +272,7 @@ class Cell:
 
 
 
-def TE_Matrix(data, lag, conditional=False, effec=False, maxNumPartitions=10, max_perm=10):
+def TE_Matrix(data, lag, conditional=False, maxNumPartitions=10):
     """
     Calculates the causal heatmap using the Darbellay-Vajda adaptive partioning method
 
@@ -294,13 +284,8 @@ def TE_Matrix(data, lag, conditional=False, effec=False, maxNumPartitions=10, ma
         Time-delay for transfer entropy calculation
     conditional: bool
         Whether to calculate the conditional transfer entropy.
-    effec: bool
-        Whether to calculate the effective transfer entropy. This is done by shuffling the source variable.
     maxNumPartitions: scalar
         Maximum number of partitions for each variable
-    max_perm: scalar
-        Maximum number of permutations to use. Only applies if effec==True.
-
 
     Returns
     -------
@@ -325,18 +310,11 @@ def TE_Matrix(data, lag, conditional=False, effec=False, maxNumPartitions=10, ma
             
             # Make sure you aren't performing an operation on the same column
             if column_i != column_j:
-                if conditional: result = darbellayTE(data[:,column_i], data[:,column_j], lag, conditions=np.delete(data,[column_i,column_j],axis=1),maxNumPartitions=maxNumPartitions)
-                else: result=darbellayTE(data[:,column_i], data[:,column_j], lag, conditions=None, maxNumPartitions=maxNumPartitions)
-                result_perm=0
-                if effec==True:
-                    permutations = np.zeros(max_perm)
-                    effec_timer_start = timeit.default_timer()
-                    for ind in range(max_perm):
-                        permutations[ind] =  darbellayTE(data[column_i], data[column_j], lag, conditions=np.delete(data,[column_i,column_j],axis=1), perm=True)
-                    effec_timer_stop = timeit.default_timer()
-                    print('Time for Permutation Calculations:',(effec_timer_stop - effec_timer_start))
-                    result_perm = np.mean(permutations)
-                results_matrix[i,j] = result - result_perm
+                if conditional: 
+                    result = darbellayTE(data[:,column_i], data[:,column_j], lag, conditions=np.delete(data,[column_i,column_j],axis=1),maxNumPartitions=maxNumPartitions)
+                else: 
+                    result=darbellayTE(data[:,column_i], data[:,column_j], lag, conditions=None, maxNumPartitions=maxNumPartitions)
+                results_matrix[i,j] = result
             j+=1
         i+=1
         

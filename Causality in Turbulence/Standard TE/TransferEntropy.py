@@ -11,7 +11,7 @@ import timeit
 from tqdm import tqdm
 
 class TransferEntropy:
-    def __init__(self, discrete_type = "quantiles", bins = 10, quantiles = [25,75]):
+    def __init__(self, discrete_type = "bins", bins = 10, quantiles = [25,75]):
         """
         Options for discrete_type:
             -bins (equal-width bins)
@@ -26,17 +26,14 @@ class TransferEntropy:
         self.nbins = bins
         self.quantiles = quantiles
 
-    def calc_te(self, Y, X, lag, conditions=None, perm=False):
+    def calc_te(self, Y, X, lag, conditions=None):
         """
         Calculates Transfer Entropy from Y to X (with conditions if wanted)
         
         Notes:
             -Conditions must be a pandas dataframe with shape (N,#Condtions) where N is len(X)
-            -Perm is still experimental, DO NOT USE
             -Portion calculates the transfer entropy with only a portion of the given data. Value should be between [0,1], representing the portion of data to be used.
         """
-        start_time=timeit.default_timer()
-
         con_pres=False        
         if type(conditions)==pd.DataFrame: con_pres=True
         
@@ -74,16 +71,7 @@ class TransferEntropy:
             if con_pres:
                 for ind in range(N_conditions):
                     conditions_past[N_conditions*l+ind,:]=dis_con[ind][l:N-lag+l]
-                    
-        # Shuffling the past of Y in-place!
-                
-        if perm:
-            # A new term will be included requiring shuffling to take place until at least 40% of the data has been shuffled
-            print('Permutating Y Now!!!')
-            np.random.shuffle(Y_past)
-            np.random.shuffle(Y_past)
-            np.random.shuffle(Y_past)
-        
+                            
         # Step 3) The Big One. Make those probability tables
         """
         TE_{Y->X|W} where W is a matrix of conditions is calculated by:
@@ -146,8 +134,6 @@ class TransferEntropy:
         
         Transfer_Entropy = (H1 - H2) - (H3 - H4) # Using the difference of entropies 
         
-        end=timeit.default_timer()
-        # print('TE Calculation Time:',end-start_time) # Can uncomment if you wish to see the runtimes actively.
         return Transfer_Entropy
         
     def discrete(self, X1):
@@ -172,13 +158,7 @@ class TransferEntropy:
         
         return discrete_X
     
-    def TE_Matrix(self, data, lag, conditional=False, effec=False, numPerm=10, section = 1, effecOnly=False):
-        
-        if effecOnly: 
-            assert effec==effecOnly, "If calculating only effective transfer entropy, variable 'effec' must also be True!"
-            print('\n','--'*20)
-            print('The resultant matrix will only have negative results. This is to be expected! Since you are calculating effective only, we will be subtracting from 0. In order to obtain the proper transfer entropy, you will need to manually sum this result with whatever non-effective transfer entropy has already been calculated')
-            print('--'*20,'\n')
+    def TE_Matrix(self, data, lag, conditional=False):
         
         #Takes a Pandas dataframe and applies a function D_func to all columns in the dataframe
         data = pd.DataFrame(data)
@@ -198,19 +178,12 @@ class TransferEntropy:
                 # Make sure you aren't performing an operation on the same column
                 if column_i != column_j:
                     
-                    #Calculating the original transfer entropy on its own
-                    if not effecOnly:
-                        if conditional: result = self.calc_te(data[column_i], data[column_j], lag, conditions=data.drop(columns=[column_i,column_j]))
-                        else: result=self.calc_te(data[column_i], data[column_j], lag)
-                    else: result = 0
-                    result_perm=0
-                    
-                    if effec==True:
-                        permutations = np.zeros(numPerm)
-                        for ind in range(numPerm):
-                            permutations[ind] =  self.calc_te(data[column_i], data[column_j], lag, conditions=data.drop(columns=[column_i,column_j]), perm=True)
-                        result_perm = mean(permutations)
-                    results_matrix[i,j] = result - result_perm
+                    #Calculating the transfer entropy 
+                    if conditional: 
+                        result = self.calc_te(data[column_i], data[column_j], lag, conditions=data.drop(columns=[column_i,column_j]))
+                    else: 
+                        result=self.calc_te(data[column_i], data[column_j], lag)
+                    results_matrix[i,j] = result
                 j+=1
             i+=1
             

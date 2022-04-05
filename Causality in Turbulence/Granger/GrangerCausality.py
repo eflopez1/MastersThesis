@@ -8,8 +8,6 @@ import numpy as np
 from tqdm import tqdm
 import pandas as pd
 import timeit
-import matplotlib.pyplot as plt
-import os
 
 class GrangerCausality:
     def __init__(self, verbose=False):
@@ -57,7 +55,6 @@ class GrangerCausality:
         multi_data=pd.DataFrame()
         for i in range(lag):
             multi_data[i]=X_past[i]
-            # multi_data[i+1]=Y_past[i]
             multi_Y[i]=Y_past[i]
                 
         if conditions is not None:
