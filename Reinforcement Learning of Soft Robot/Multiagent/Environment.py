@@ -2,26 +2,27 @@ import pymunk
 import pygame
 import numpy as np
 from numpy import sin, cos
-from numpy.linalg import norm
 from tqdm import tqdm
 from math import floor
-from gym import spaces
+from gymnasium import spaces
 import matplotlib.pyplot as plt
 from datetime import datetime
-from pettingzoo.utils import wrappers, ParallelEnv, from_parallel
-from shutil import rmtree
-import glob # For creating videos
-import cv2 # For creating videos
+from pettingzoo.utils import wrappers, ParallelEnv
+from pettingzoo.utils.conversions import from_parallel
 from warnings import warn
+from typing import Dict
 import os
 
-def reg_env(dt, ppm, screenHeight, screenWidth, maxNumSteps, R, 
-                 numBots, botMass, botRadius, skinRadius, skinMass, skinRatio, 
-                 inRadius, botFriction, inMass, inFriction, percentInteriorRemove, 
-                 springK, springB, springRL, wallThickness, maxSeparation, 
-                 dataCollect=False, experimentName="NOT NAMED", 
+from utils import calc_JAMoEBA_Radius, flatten
+from convert import Convert
+
+def reg_env(dt, ppm, screenHeight, screenWidth, maxNumSteps, R,
+                 numBots, botMass, botRadius, skinRadius, skinMass, skinRatio,
+                 inRadius, botFriction, inMass, inFriction, percentInteriorRemove,
+                 springK, springB, springRL, wallThickness, maxSeparation,
+                 dataCollect=False, experimentName="NOT NAMED",
                  saveVideo = False,
-                 energy=False, kineticEnergy = False, 
+                 energy=False, kineticEnergy = False,
                  velocityPenalty=False, distanceReward=False, numStepsPerStep=1,
                  slidingFriction=0):
     """
@@ -68,15 +69,38 @@ class parallel_env(ParallelEnv):
     metadata = {'render.modes':['human'],
                 'name':'Stars'}
     
-    def __init__(self, dt, ppm, screenHeight, screenWidth, maxNumSteps, R, 
-                 numBots, botMass, botRadius, skinRadius, skinMass, skinRatio, 
-                 inRadius, botFriction, inMass, inFriction, percentInteriorRemove, 
-                 springK, springB, springRL, wallThickness, maxSeparation, 
-                 dataCollect=False, experimentName="NOT NAMED", 
-                 saveVideo = False,
-                 energy=False, kineticEnergy = False, 
-                 velocityPenalty=False, distanceReward=False, numStepsPerStep=1,
-                 slidingFriction=0):
+    # def __init__(self, 
+    #              dt:float, 
+    #              ppm, 
+    #              screenHeight, screenWidth, maxNumSteps, 
+    #              R:float, 
+    #              numBots:int, 
+    #              botMass:float, 
+    #              botRadius:float, 
+    #              skinRadius:float, 
+    #              skinMass:float, 
+    #              skinRatio:int, 
+    #              inRadius:float, 
+    #              botFriction:float, 
+    #              inMass:float, 
+    #              inFriction:float, 
+    #              percentInteriorRemove:float, 
+    #              springK, 
+    #              springB, 
+    #              springRL, 
+    #              wallThickness, 
+    #              maxSeparation,
+    #              convert:Convert, 
+    #              dataCollect=False, 
+    #              experimentName="NOT NAMED", 
+    #              saveVideo = False,
+    #              energy=False, 
+    #              kineticEnergy = False, 
+    #              velocityPenalty=False, 
+    #              distanceReward=False, 
+    #              numStepsPerStep=1,
+    #              slidingFriction=0):
+    def __init__(self, envParams:Dict):
         """
         All units in this function should be in standard physical units:
             Distance: Meters
@@ -95,20 +119,20 @@ class parallel_env(ParallelEnv):
         self.report_all_data = False # SHOULD BE FALSE DURING TRAINING
 
         # Basic simulation parameters
-        self.dt = dt                                                 # Simulation timestep
-        self.ppm = ppm                                               # Pixels per Meter
-        self.convert = Convert(ppm)                                  # Conversion to be used for all parameters given
-        self.height= self.convert.Pixels2Meters(screenHeight)        # Height of the screen, in pixels
-        self.width = self.convert.Pixels2Meters(screenWidth)         # Width of the screen, in pixels
-        self.maxNumSteps = maxNumSteps                               # Number of steps until simulation terminated
-        self.maxVelocity = 10                                        # Arbitrarily set, may need changing later.
-        self.forceGain = 2                                           # Gain for force recommendations from neural network
-        self.dataCollect = dataCollect                               # Are we collecting data rn?
-        self.saveVideo = saveVideo
-        self.experimentName = experimentName                         # Experiment name. Is assigned to plots folder and video
-        self.energy=energy                                           # If True, then we do care about calculating how much energy our system is expending to complete its mission
-        self.numStepsPerStep = numStepsPerStep                       # The number of simulation timesteps to run for each call to 'step' function
-        self.slidingFriction = slidingFriction                       # Coefficient of friction for objects sliding on the ground
+        self.dt = envParams['dt']                                                 # Simulation timestep
+        self.ppm = envParams['ppm']                                               # Pixels per Meter
+        self.convert = Convert(self.ppm)                                          # Conversion to be used for all parameters given
+        self.height= self.convert.Pixels2Meters(envParams['height'])              # Height of the screen, in pixels
+        self.width = self.convert.Pixels2Meters(envParams['width'])               # Width of the screen, in pixels
+        self.maxNumSteps = envParams['maxNumSteps']                               # Number of steps until simulation terminated
+        self.maxVelocity = 10                                                     # Arbitrarily set, may need changing later.
+        self.forceGain = 2                                                        # Gain for force recommendations from neural network
+        self.dataCollect = envParams['dataCollect']                               # Are we collecting data rn?
+        self.saveVideo = envParams['saveVideo']
+        self.experimentName = envParams['experimentName']                         # Experiment name. Is assigned to plots folder and video
+        self.energy=envParams['energy']                                           # If True, then we do care about calculating how much energy our system is expending to complete its mission
+        self.numStepsPerStep = envParams['numStepsPerStep']                       # The number of simulation timesteps to run for each call to 'step' function
+        self.slidingFriction = envParams['slidingFriction']                       # Coefficient of friction for objects sliding on the ground
         
         # Storing previous distances to ensure movement
         self.stuck_termination = False
@@ -117,44 +141,50 @@ class parallel_env(ParallelEnv):
             self.distance_storage = np.zeros(self.distance_horizon)
 
         # System membrane parameters
-        self.R = R
-        self.numBots = numBots
-        self.botMass = botMass
-        self.botRadius = botRadius     # Radius of 
-        self.botFriction = botFriction # Friction of bots and skins
-        self.skinRadius = skinRadius
-        self.skinMass = skinMass
-        self.skinRatio = skinRatio
+        self.R = calc_JAMoEBA_Radius(envParams['skinRadius'], 
+                                    envParams['skinRatio'], 
+                                    envParams['botRadius'],
+                                    envParams['numBots'])
+        self.numBots = envParams['numBots']
+        self.botMass = envParams['botMass']
+        self.botRadius = envParams['botRadius']     # Radius of 
+        self.botFriction = envParams['botFriction'] # Friction of bots and skins
+        self.skinRadius = envParams['skinRadius']
+        self.skinMass = envParams['skinMass']
+        self.skinRatio = envParams['skinRatio']
         
         # Spring parameters
-        self.springK = springK
-        self.springB = springB
-        self.springRL = springRL
-        self.maxSeparation = maxSeparation
+        self.springK = envParams['springK']
+        self.springB = envParams['springB']
+        self.springRL = envParams['springRL']
+        self.maxSeparation = envParams['maxSeparation']
         
         # Interior parameters
-        self.inRadius = inRadius
-        self.inMass = inMass
-        self.inFriction = inFriction
-        self.percentInteriorRemove = percentInteriorRemove
+        self.inRadius = envParams['inRadius']
+        self.inMass = envParams['inMass']
+        self.inFriction = envParams['inFriction']
+        self.percentInteriorRemove = envParams['percentInteriorRemove']
         
         # Paramaters for wall and space
-        self.wallThickness = wallThickness
-        self.systemStart = R+botRadius+wallThickness*1.2, self.convert.Pixels2Meters(screenHeight/2)
+        self.wallThickness = envParams['wallThickness']
+        self.systemStart = self.R+envParams['botRadius']+envParams['wallThickness']*1.2, self.convert.Pixels2Meters(envParams['height']/2)
         self.startDistance = np.linalg.norm(self.systemStart)
         
         # Position of target, relative to system start
-        self.targetDistance = targetDistance = R*72
+        self.targetDistance = targetDistance = self.R*72 # Change integer to some arbitrary number
         self.targetLoc = self.systemStart[0]+targetDistance, self.systemStart[1] # Located directly down the x-axis
             
-        self.kineticEnergy = kineticEnergy # If True, then we are calculating the Kinetic energy of the system
+        self.kineticEnergy = envParams['kineticEnergy'] # If True, then we are calculating the Kinetic energy of the system
         if self.kineticEnergy:
             self.KE = np.zeros(30) # We will store 30 timesteps worth of information
             
-        self.velocityPenalty = velocityPenalty
+        self.velocityPenalty = envParams['velocityPenalty']
         if self.velocityPenalty:
             self.velRecent = np.zeros(30) # We will store 30 timesteps worth of information
-        
+
+        self.energy = envParams['energy']
+        self.distanceReward = envParams['distanceReward']    
+
         #Gather information on number of interior
         granPerRing, _ = interiorPattern(self.R, self.inRadius, self.botRadius, self.percentInteriorRemove)
         self.numInterior = np.sum(granPerRing)
@@ -169,7 +199,7 @@ class parallel_env(ParallelEnv):
         # Definine the observation function
         self.observationFunc = self.observation_shallow
 
-        self.possible_agents = ['Bot_'+str(r) for r in range(numBots)]
+        self.possible_agents = ['Bot_'+str(r) for r in range(self.numBots)]
         
         self.action_spaces = {agent: spaces.Box(
             low = force_low,
@@ -201,10 +231,10 @@ class parallel_env(ParallelEnv):
                                        ['SpringRL:', str(self.springRL)],
                                        ['maxSeparation',str(self.maxSeparation)],
                                        ['slidingFriction', str(self.slidingFriction)],
-                                       ['energy',str(energy)],
-                                       ['kinetic energy',str(kineticEnergy)],
-                                       ['velocity penalty',str(velocityPenalty)],
-                                       ['distance reward',str(distanceReward)],
+                                       ['energy',str(self.energy)],
+                                       ['kinetic energy',str(self.kineticEnergy)],
+                                       ['velocity penalty',str(self.velocityPenalty)],
+                                       ['distance reward',str(self.distanceReward)],
                                        ['PixelsPerMeter (ppm):',str(self.ppm)],
                                        ['SystemRadius',str(self.R)],
                                        ['ScreenWidth',str(self.width)],
@@ -220,7 +250,7 @@ class parallel_env(ParallelEnv):
             now = now.replace(":","")
             now = now[:-7]
             
-            self.saveFolder = experimentName+ " Data and Plots "+now+"/"
+            self.saveFolder = self.experimentName+ " Data and Plots "+now+"/"
             os.makedirs(self.saveFolder,exist_ok=True)
             # This +1 is for the extra column needed to record time.
             self.X_data = np.zeros(self.numBots + 1)
@@ -232,14 +262,11 @@ class parallel_env(ParallelEnv):
             self.obs_data = np.zeros(self.state_size +1)
             
         if self.saveVideo:
-            self.videoFolder = experimentName + '_VideoImages/'
+            self.videoFolder = self.experimentName + '_VideoImages/'
             os.makedirs(self.videoFolder,exist_ok=True)
     
         return None
-        
-        
-        
-        
+    
         
     def reset(self):
         """
@@ -347,9 +374,9 @@ class parallel_env(ParallelEnv):
         #### Collision Handler
         # Reports collisions with walls, objects, and obstacles
         for bot in self.bots:
-            cHandler = self.space.add_collision_handler(1,bot.shape.collision_type)
+            cHandler = self.space.on_collision(1,bot.shape.collision_type)
             cHandler.post_solve = self.colPost
-        
+
         #### Add target visual
         target = pymunk.Body(body_type = pymunk.Body.STATIC)
         targetRad = self.convert.Meters2Pixels(self.R*0.1)
@@ -371,7 +398,6 @@ class parallel_env(ParallelEnv):
         return observations
     
     
-        
     def step(self, actions):
         """
         step(action) takes in an action for each agent and should return
@@ -588,18 +614,12 @@ class parallel_env(ParallelEnv):
         self.extForcesY[botIndex-2] = impulse[1] / self.dt
     
     
-    
-    
-    
     def colPost(self, arbiter, space, data):
         impulse = arbiter.total_impulse
         collisionShapes = arbiter.shapes
         collisionPair = [collisionShapes[0].collision_type, collisionShapes[1].collision_type]
         self.reportContact(collisionPair, impulse)
         return True
-    
-    
-    
     
     
     def calcRew(self, distanceToTarget):
@@ -654,7 +674,6 @@ class parallel_env(ParallelEnv):
         return done, rew
     
     
-    
     def render(self, arg=None):
         if not self.render_setup:
             from pymunk.pygame_util import DrawOptions
@@ -689,6 +708,7 @@ class parallel_env(ParallelEnv):
             pygame.image.save(self.screen, self.videoFolder+'image%06d.jpg' % self.timestep)
         self.clock.tick()
     
+
     def close(self):
         if self.render_setup:
             pygame.display.quit()
@@ -712,7 +732,6 @@ class parallel_env(ParallelEnv):
             temp_star_points.append(star) 
         
         self.star_points = np.asarray(temp_star_points)
-
 
 
     def dataCollection(self,ac,rew,obs):
@@ -801,6 +820,7 @@ class parallel_env(ParallelEnv):
         self.botPositions.append(tempBotPositions)
         self.skinPositions.append(tempSkinPositions)
         self.interiorPositions.append(tempInteriorPositions)
+     
         
     def parameterExport(self, saveLoc=None):
         if saveLoc==None:
@@ -937,28 +957,7 @@ class parallel_env(ParallelEnv):
         np.save(self.saveFolder + 'target_loc', np.asarray(self.targetLoc))    
     
     
-class Convert:
-    def __init__(self, conversion_ratio):
-        """
-        Parameters
-        ----------
-        conversion_ratio : float
-            The conversion ratio between pixels and meters in the form (pixels/meter).
-        """
-        self.ratio = conversion_ratio
-        
-    def Pixels2Meters(self, num_pixels):
-        return (num_pixels*(1/self.ratio))
-    
-    def Meters2Pixels(self, meters):
-        return (meters*self.ratio)
-    
-    def SpringK2Pixels(self, springK):
-        return (springK*(1/self.ratio))
-    
-    def Pixels2SpringK(self, springKPixels):
-        return (springKPixels*self.ratio)
-    
+
 class Ball:
     def __init__(self, space, position, radius, mass, friction, collisionType = 0, color = (0,255,0,255)):
         self.body = pymunk.Body()
@@ -1045,7 +1044,10 @@ def connectBalls(space, theta1, theta2, b1, b2, rest_length, spring_stiffness, s
     space.add(springConstraint, slideJoint)
     return None
 
-def createJamoeba(space, systemCenterLocation, systemRadius, numBots, botMass, botRadius, skinMass, skinRadius, skinRatio, botFriction, springK, springB, springRL, maxSeparation, inRadius, inMass, inFriction,  percentInteriorRemove = 0, botCollisionIntStart = 2):
+def createJamoeba(space, systemCenterLocation, systemRadius, numBots, botMass, 
+                  botRadius, skinMass, skinRadius, skinRatio, botFriction, 
+                  springK, springB, springRL, maxSeparation, inRadius, inMass, 
+                  inFriction,  percentInteriorRemove = 0, botCollisionIntStart = 2):
     xCenter = systemCenterLocation[0]
     yCenter = systemCenterLocation[1]
     
@@ -1203,16 +1205,6 @@ def createWalls(space, screenHeight, screenWidth, wallThickness, tunnel=False, e
     space.add(shape1,body1,shape2,body2,shape3,body3,body4,shape4)
     
     return None
-
-
-def createVideo(saveLoc, imgLoc, videoName, imgShape):
-    out = cv2.VideoWriter(saveLoc+videoName+'.avi', cv2.VideoWriter_fourcc(*'DIVX'), 40, imgShape)
-    for file in glob.glob(imgLoc+'*.jpg'):
-        img = cv2.imread(file)
-        out.write(img)
-    out.release
-    
-    rmtree(imgLoc)
     
 def createObstacleField(space, obstacleCoordinates, obsRadius, friction, square=False, star=False, report_points=False):
     """
@@ -1403,72 +1395,6 @@ class limiter:
         if l > self.max_velocity:
             scale = self.max_velocity / l
             body.velocity = body.velocity*scale
-
-
-def calc_JAMoEBA_Radius(skinRadius, skinRatio, botRadius, numBots):
-    """
-    Inputs:
-        - skinRadius (float): The radius of skin particles on system
-        - skinRatio (int): Ratio of number of skin particles per bot
-        - botRadius (float): The radius of bot particles on system
-        - numBots (int): Number of bots in the system
-
-    Returns:
-        - R (float): Radius of the system given parameters
-    """
-    startDistance = skinRadius # The start distance between bots
-    arcLength = 2*botRadius+skinRatio*(2*skinRadius)+(skinRatio+1)*startDistance
-    theta = 2*np.pi/numBots
-    R = arcLength/theta #**
-    return R
-
-class Convert:
-    def __init__(self, conversion_ratio=100):
-        """
-        Parameters
-        ----------
-        conversion_ratio : float
-            The conversion ratio between pixels and meters in the form (pixels/meter).
-        """
-        self.ratio = conversion_ratio
-        
-    def Pixels2Meters(self, num_pixels):
-        return (num_pixels*(1/self.ratio))
-    
-    def Meters2Pixels(self, meters):
-        return (meters*self.ratio)
-    
-    def SpringK2Pixels(self, springK):
-        return (springK*(1/self.ratio))
-    
-    def Pixels2SpringK(self, springKPixels):
-        return (springKPixels*self.ratio)
-
-def flatten(l):
-    """
-    Given a list that may contain arrays and scalars, will return an unwrapped list
-    """
-    for item in l:
-        try:
-            yield from flatten(item)
-        except TypeError:
-            yield item
-
-
-def createVideo(saveLoc, imgLoc, videoName, imgShape):
-    print('\nCreating video...')
-    import glob # For creating videos
-    import cv2 # For creating videos
-    from shutil import rmtree
-
-    out = cv2.VideoWriter(saveLoc+videoName+'.avi', cv2.VideoWriter_fourcc(*'DIVX'), 40, imgShape)
-    for file in tqdm(glob.glob(imgLoc+'*.jpg')):
-        img = cv2.imread(file)
-        out.write(img)
-    out.release
-    
-    rmtree(imgLoc)
-    print('Video Creation Complete')
 
 
 def save_runtime(saveloc,  file_name, runtime):

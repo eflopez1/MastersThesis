@@ -1,0 +1,48 @@
+# Environment parameters
+# This key parameter affects others, so itis separate from the rest
+numBots: 10
+
+experimentName: ExperimentNameHere
+
+# Environment Parameters    dt
+dt: 1/200.0 # Simulation timestep
+numStepsPerStep: 50
+botMass: .15
+botRadius: .025  #**
+skinRadius: .015 #**
+skinMass: .15/2 # botMass/2
+skinRatio: 2 
+inRadius: .025 # botRadiuys
+botFriction: 0.5
+inMass: .0005   
+inFriction: 0.5
+percentInteriorRemove: 0
+springK: 1 #**
+springB: 1
+springRL: 0 #**
+wallThickness: .025/2 # botRadius/2 #**
+maxSeparation: .025/2 # inRadius*1.75 #**
+energy: False
+kineticEnergy: False
+slidingFriction: 0.2
+
+# Attributes which alter how system is rewarded
+velocityPenalty: False
+energy: False
+kineticEnergy: False
+distanceReward: False
+
+# Frame stackingm for storing history
+frame_stack: 3 # Storing 3 frames worth of information
+
+# Parameters for screen when creating/saving video
+# TODO: Verify if these are even used..
+width : 1382 
+height: 777
+maxNumSteps: 7000
+ppm: 150 # Pixels per Meter
+
+# Parameters on whether to render/save video
+render: True       # Whether to render the simulation
+saveVideo: False   # Whether to write to a video file (MP4 I believe)
+dataCollect: False # Whether to store simulation data in CSV files and MatPlotLib plots

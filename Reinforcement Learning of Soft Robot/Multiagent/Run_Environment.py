@@ -6,21 +6,33 @@ Of course, the user can also simply import a model here and call that agent
 for actions to be taken.
 """
 
-# Importing Parameters and all needed libraries
-from env_params import *
+# Imports
+import yaml
+import matplotlib.pyplot as plt
+from tqdm import tqdm
 
-# Ensure working directory is set proper
-filepath = os.path.dirname(os.path.realpath(__file__))
-sys.path.append('../..') # Commands Python to search for modules in this folder as well.
+from utils import eval_yaml, createVideo
+from Environment import parallel_env
+
+# Importing Parameters and all needed libraries
+# DEPRECATED! Use YAML file instead!
+# from env_params import *  
+
+# Load envirinment parameters
+config_file = 'env_params.yaml'
+with open(config_file, 'r') as infile:
+    envParams = yaml.safe_load(infile)
+
+# Resolve any math equations used in the YAML file
+envParams = eval_yaml(envParams)
 
 # Create the environment
-env = parallel_env(**envParams)
+env = parallel_env(envParams)
 _  = env.reset()
 
 # Defining actions for simple L-Turn
 actions=dict()
 for agent in env.agents:
-    # f = 15
     f = 1
     actions[agent] = [f,0]
 
@@ -33,9 +45,9 @@ for _ in range(1):
     plt.close('all')
     obs = env.reset()
 
-    for i in tqdm(range(maxNumSteps//7)):
+    for i in tqdm(range(envParams['maxNumSteps']//7)):
         if slow: sleep(.01)
-        if render:
+        if envParams['render']:
             env.render(None)
         if i == 50:
             for agent in env.agents:
@@ -48,9 +60,12 @@ for _ in range(1):
 
     print('End of episode')
     
-    if dataCollect:
+    if envParams['dataCollect']:
         env.dataExport()
-    if saveVideo: 
-        createVideo(env.saveFolder, env.videoFolder, experimentName, (width, height))
+    if envParams['saveVideo']: 
+        createVideo(env.saveFolder, 
+                    env.videoFolder, 
+                    envParams['experimentName'], 
+                    (envParams['width'], envParams['height']))
     env.close()
     plt.close('all')

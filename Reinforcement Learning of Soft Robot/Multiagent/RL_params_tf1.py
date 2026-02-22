@@ -10,11 +10,8 @@ import numpy as np
 sys.path.append('../..')
 
 # Import custom functions
-from stable_baselines.common.callbacks import BaseCallback
-from stable_baselines import PPO2
-from stable_baselines.common import make_vec_env
-from stable_baselines.bench import Monitor
-from stable_baselines.common.vec_env import SubprocVecEnv
+from stable_baselines3.common.callbacks import BaseCallback
+from stable_baselines3 import PPO2
 
 # Loading info from environment needed in this list
 from env_params import maxNumSteps

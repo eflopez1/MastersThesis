@@ -1,11 +1,9 @@
 # Basic libraries needed
 import sys
 import matplotlib.pyplot as plt
-from multiprocessing import freeze_support
 import os
 import numpy as np
 from math import floor
-from win32api import GetSystemMetrics
 from tqdm import tqdm
 sys.path.append('../..')
 
@@ -59,7 +57,7 @@ ppm = 150 # Pixels Per Meter
 # Parameters for specifiying the system and target locations at start
 # If you do not want to specify these, simply set them as 'None'
 convert = Convert(ppm)
-render = False
+render = True
 saveVideo = False
 dataCollect = False
 experimentName = "Enter Experiment Name" # WILL BE OVERWRITTEN IF 'grabbing_RL_params.py' IS CALLED
