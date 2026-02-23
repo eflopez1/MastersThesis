@@ -1,8 +1,6 @@
 import pymunk
 import pygame
 import numpy as np
-from numpy import sin, cos
-from tqdm import tqdm
 from math import floor
 from gymnasium import spaces
 import matplotlib.pyplot as plt
@@ -13,8 +11,12 @@ from warnings import warn
 from typing import Dict
 import os
 
+# Custom modules
 from utils import calc_JAMoEBA_Radius, flatten
 from convert import Convert
+from ball import Ball
+from obstacle import Obstacle
+from star_obstacle import StarObstacle
 
 def reg_env(dt, ppm, screenHeight, screenWidth, maxNumSteps, R,
                  numBots, botMass, botRadius, skinRadius, skinMass, skinRatio,
@@ -374,8 +376,7 @@ class parallel_env(ParallelEnv):
         #### Collision Handler
         # Reports collisions with walls, objects, and obstacles
         for bot in self.bots:
-            cHandler = self.space.on_collision(1,bot.shape.collision_type)
-            cHandler.post_solve = self.colPost
+            self.space.on_collision(1,bot.shape.collision_type, post_solve=self.colPost)
 
         #### Add target visual
         target = pymunk.Body(body_type = pymunk.Body.STATIC)
@@ -955,83 +956,6 @@ class parallel_env(ParallelEnv):
         np.save(self.saveFolder + 'skin_coords', np.asarray(self.skinPositions))
         np.save(self.saveFolder + 'interior_coords', np.asarray(self.interiorPositions))
         np.save(self.saveFolder + 'target_loc', np.asarray(self.targetLoc))    
-    
-    
-
-class Ball:
-    def __init__(self, space, position, radius, mass, friction, collisionType = 0, color = (0,255,0,255)):
-        self.body = pymunk.Body()
-        self.radius = radius
-        self.body.position = position
-        self.shape = pymunk.Circle(self.body, radius)
-        self.shape.mass = mass
-        self.shape.color = color
-        self.shape.friction = friction
-        self.shape.collision_type = collisionType
-        space.add(self.body, self.shape)
-    
-class Obstacle:
-    def __init__(self, space, position, radius, friction, color = (0,0,0,255)):
-        self.body = pymunk.Body(body_type = pymunk.Body.STATIC)
-        self.radius = radius
-        self.body.position = position
-        self.shape = pymunk.Circle(self.body, self.radius)
-        self.shape.color = color
-        self.shape.friction = friction
-        self.shape.collision_type = 1
-        space.add(self.body, self.shape)
-        
-class starObstacle:
-    def __init__(self, space, position, width, friction, rotation=0, color=(0,0,0,255)):
-        self.body = pymunk.Body(body_type=pymunk.Body.STATIC)
-        self.body.position = position
-        self.body.angle=rotation
-        self.width = width
-        self.position = position
-        self.friction = friction
-        
-        space.add(self.body)
-        
-        # Gather points of star based
-        xo = [] # Exterior x-points
-        yo = [] # Exterior y-points
-        xi = [] # Interior x-points
-        yi = [] # Interioer y-points
-        polyPoints= [] # Gathering all the points in the order that we want to connect them in
-        for k in range(5):
-            xOutside = width*cos(2*np.pi*k/5)
-            yOutside = width*sin(2*np.pi*k/5)
-            xInside = (width/2)*cos(2*np.pi*k/5 + np.pi/5)
-            yInside = (width/2)*sin(2*np.pi*k/5 + np.pi/5)
-            xo.append(xOutside)
-            yo.append(yOutside)
-            xi.append(xInside)
-            yi.append(xInside)
-            polyPoints.append((xOutside,yOutside))
-            polyPoints.append((xInside,yInside))
-        
-        """
-        Creating shape via segments
-        """
-        segments = []
-        numPoints = len(polyPoints)
-        for point in range(numPoints-1):
-            seg = pymunk.Segment(self.body,polyPoints[point],polyPoints[point+1],5)
-            seg.friction = friction
-            seg.color = color
-            seg.collision_type = 1
-            segments.append(seg)
-            space.add(seg)
-            
-            # Connecting the last point to the first 
-            if point == numPoints-2:
-                seg = pymunk.Segment(self.body, polyPoints[-1],polyPoints[0],5)
-                seg.friction = friction
-                seg.color = color
-                seg.collision_type = 1
-                space.add(seg)
-
-        self.star_points = polyPoints
                 
 
 def connectBalls(space, theta1, theta2, b1, b2, rest_length, spring_stiffness, spring_damping, maxSeparation):
@@ -1221,7 +1145,7 @@ def createObstacleField(space, obstacleCoordinates, obsRadius, friction, square=
         posY = coord[1]+obsRadius
         
         theta = (np.pi)*np.random.rand()
-        obstacle = starObstacle(space,(posX,posY),obsRadius,friction,theta)
+        obstacle = StarObstacle(space,(posX,posY),obsRadius,friction,theta)
         obstacles.append(obstacle)
 
         if report_points:
