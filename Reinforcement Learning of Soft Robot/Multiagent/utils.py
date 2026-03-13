@@ -7,7 +7,19 @@ import numpy as np
 import cv2
 import glob
 import shutil
+from pathlib import Path
+import yaml
 import os
+
+def load_yaml(yaml_filepath:os.PathLike) -> Dict:
+    '''
+    Loads a YAML from provided filepath location
+    '''
+    assert Path(yaml_filepath).suffix=='yaml', "Provided YAML filepath must be a YAML!!"
+
+    with open(yaml_filepath, 'r') as infile:
+        yaml_dict = yaml.safe_load(infile)
+    return yaml_dict
 
 def eval_yaml(yaml_dict:Dict) ->Dict:
     '''
