@@ -1,6 +1,7 @@
 '''
 Class to handle Poisson Sampling
 '''
+import numpy as np
 
 class Poisson_Sampling:
     def __init__(self, min_distance, width, height):

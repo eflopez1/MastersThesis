@@ -2,6 +2,8 @@
 """
 This script can be used to run an environment WITHOUT using any learned agent.
 
+Common usage includes general environment debugging and troubleshooting
+
 Of course, the user can also simply import a model here and call that agent
 for actions to be taken.
 """

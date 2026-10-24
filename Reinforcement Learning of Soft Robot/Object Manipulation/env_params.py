@@ -12,7 +12,6 @@ from shutil import copyfile
 import numpy as np
 from numpy import sin, cos, sqrt, log
 from warnings import warn
-from win32api import GetSystemMetrics
 from math import floor
 from tqdm import tqdm
 sys.path.append('../..')

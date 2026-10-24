@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 import os
 import numpy as np
 from math import floor
-from win32api import GetSystemMetrics
 from tqdm import tqdm
 
 # Standard Environment

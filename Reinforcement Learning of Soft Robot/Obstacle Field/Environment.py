@@ -1475,8 +1475,6 @@ def createObstacleField(space, obstacleCoordinates, obsRadius, friction, square=
     else:
         return obstacles
         
-    
-
 class Poisson_Sampling:
     def __init__(self, min_distance, width, height):
         """

@@ -19,9 +19,9 @@ if __name__ == '__main__':
    
     # Setting up Callback
     checkpoint_callback = CheckpointCallback2(
-        save_freq=check_freq, 
-        save_path = savefile 
-    ) 
+        save_freq=check_freq,
+        save_path = savefile
+    )
 
     # Assert that we are not gathering simulation information during training
     envParams['dataCollect']=False

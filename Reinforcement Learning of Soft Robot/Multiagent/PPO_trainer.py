@@ -17,5 +17,5 @@ if __name__ == '__main__':
     envParams = load_yaml(env_params_path)
     envParams = eval_yaml(envParams)
     
-    # Create the envuronment 
+    # Create the environment 
     training_env = parallel_env(envParams)
