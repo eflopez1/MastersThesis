@@ -1,0 +1,9 @@
+# Ablation: range rays (8 world-frame rays, 1 R long) instead of the contact direction.
+base: mappo.yaml
+env:
+  observation:
+    contact_normal: false
+    range_sensors: true
+train:
+  logging:
+    name: mappo_range_sensing

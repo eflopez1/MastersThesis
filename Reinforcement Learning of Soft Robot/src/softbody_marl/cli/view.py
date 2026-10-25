@@ -41,7 +41,7 @@ def main(argv: list[str] | None = None) -> None:
                 renderer.draw(core.frame())
                 if res.terminated or res.truncated:
                     print(f"episode {ep}: return={core.episode_return:.1f} success={res.info['success']} "
-                          f"finish_line={res.info['finish_line']} failure={res.info['failure_reason']}")
+                          f"failure={res.info['failure_reason']}")
                     break
             if renderer.closed:
                 break

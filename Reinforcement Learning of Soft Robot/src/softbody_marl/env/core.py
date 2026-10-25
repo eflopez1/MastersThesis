@@ -13,7 +13,7 @@ import numpy as np
 
 from softbody_marl.config import EnvConfig
 from softbody_marl.env import descriptors as D
-from softbody_marl.env.observations import BodySnapshot, ObservationBuilder, global_state
+from softbody_marl.env.observations import BodySnapshot, ObservationBuilder, global_state, sensing_dim
 from softbody_marl.env.reward import RewardInputs, compute_reward
 from softbody_marl.physics.geometry import INTERIOR, ObstacleSpec, build_layout, sample_obstacles
 from softbody_marl.physics.world import SoftBodyWorld
@@ -41,7 +41,7 @@ class RenderFrame:
     obstacle_shape: str
     segment_radius: float
     target: np.ndarray
-    success_radius: float
+    finish_x: float
     centroid: np.ndarray
     arena: tuple[float, float]
     wall_thickness: float
@@ -63,6 +63,7 @@ class SoftBodyNavCore:
         self.start = np.array([self.R + b.bot_radius + 1.2 * a.wall_thickness, a.height / 2])
         self.target_distance = a.target_distance_in_R * self.R
         self.target = self.start + np.array([self.target_distance, 0.0])
+        self.finish_x = float(self.target[0] - cfg.reward.finish_line_margin_in_R * self.R)
         self.max_steps = cfg.max_episode_steps
         d = cfg.descriptors
         self.global_dims = {
@@ -72,7 +73,7 @@ class SoftBodyNavCore:
         }
         self.obs_builder = ObservationBuilder(cfg, self.R, self.target_distance, self.global_dims)
         self.obs_dim = self.obs_builder.dim
-        self.state_dim = 4 + 5 * self.n + sum(self.global_dims.values()) + 1
+        self.state_dim = 4 + 5 * self.n + sensing_dim(cfg) * self.n + sum(self.global_dims.values()) + 1
         self.rng = np.random.default_rng()
         self.world: SoftBodyWorld | None = None
 
@@ -118,17 +119,16 @@ class SoftBodyNavCore:
 
         snap, extra = self._observe()
         rc = self.cfg.reward
-        success = extra["distance"] < rc.success_radius_in_R * self.R
-        finish = rc.use_finish_line and (self.target[0] - snap.centroid[0]) < rc.finish_line_margin_in_R * self.R
+        success = bool(snap.centroid[0] >= self.finish_x)
         failure = extra["failure_reason"] is not None
-        terminated = bool(success or finish or failure)
+        terminated = bool(success or failure)
         truncated = bool(not terminated and self.steps >= self.max_steps)
 
         contact_src = extra["active_obstacle_contact"] | (extra["active_wall_contact"] if rc.contact_penalty_includes_walls else False)
         reward, comps = compute_reward(rc, RewardInputs(
             prev_distance=self.prev_distance, distance=extra["distance"],
             active_env_contact_fraction=float(np.mean(contact_src)), actions=clipped,
-            area_ratio=extra["area_ratio"], success=bool(success), finish_line=bool(finish),
+            area_ratio=extra["area_ratio"], success=success,
             failure=failure, timeout=truncated,
         ))
         self.prev_distance = extra["distance"]
@@ -141,8 +141,7 @@ class SoftBodyNavCore:
             **extra,
             "step": self.steps,
             "time": self.world.time,
-            "success": bool(success),
-            "finish_line": bool(finish),
+            "success": success,
             "action_raw": raw,
             "action_clipped_fraction": float(np.mean(np.abs(raw) > 1.0)),
             "commanded_force": commanded,
@@ -161,7 +160,7 @@ class SoftBodyNavCore:
             positions=self.world.positions(), radii=self.layout.radii, kinds=self.layout.kinds,
             env_contact=cs.obstacle_any | cs.wall_any, obstacles=self.obstacles,
             obstacle_shape=self.cfg.obstacles.shape, segment_radius=self.cfg.obstacles.segment_radius,
-            target=self.target, success_radius=self.cfg.reward.success_radius_in_R * self.R,
+            target=self.target, finish_x=self.finish_x,
             centroid=self._last_snapshot.centroid, arena=(self.cfg.arena.width, self.cfg.arena.height),
             wall_thickness=self.cfg.arena.wall_thickness, applied_forces=self.applied_forces.copy(),
             active_idx=self.layout.active_membrane_idx, time=self.world.time, step=self.steps,
@@ -192,8 +191,13 @@ class SoftBodyNavCore:
             "shape_fourier": D.fourier_shape(membrane, centroid, d.fourier_harmonics, self.R),
             "contact_map": D.contact_map(env_c[aidx], d.contact_sectors),
         }
+        o = cfg.observation
+        normals = (w.contact_normals(aidx, o.contact_includes_walls) if o.contact_normal
+                   else np.zeros((len(aidx), 0)))
+        ranges = (w.range_scan(aidx, o.range_num_rays, o.range_max_in_R * self.R, o.range_includes_walls)
+                  if o.range_sensors else np.zeros((len(aidx), 0)))
         snap = BodySnapshot(active_pos, active_vel, centroid, centroid_vel, self.target, env_c[aidx],
-                            min(self.steps / self.max_steps, 1.0), globals_)
+                            min(self.steps / self.max_steps, 1.0), globals_, normals, ranges)
 
         seps = w.link_separations(pos, ang)
         area = D.polygon_area(membrane)

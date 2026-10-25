@@ -1,0 +1,9 @@
+# Ablation: binary contact flag only (the legacy-style observation, no obstacle direction or range).
+base: mappo.yaml
+env:
+  observation:
+    contact_normal: false
+    range_sensors: false
+train:
+  logging:
+    name: mappo_no_sensing

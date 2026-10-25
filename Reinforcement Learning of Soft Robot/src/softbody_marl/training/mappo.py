@@ -27,7 +27,7 @@ from softbody_marl.training.policy import PolicyController, load_checkpoint
 from softbody_marl.training.utils import FrameStack, RunningMeanStd, compute_gae
 from softbody_marl.training.vec_env import VecEnv
 
-EPISODE_KEYS = ("return", "length", "goal", "success", "finish_line", "failure", "truncated", "progress_fraction",
+EPISODE_KEYS = ("return", "length", "success", "failure", "truncated", "progress_fraction",
                 "steps_with_active_obstacle_contact_frac", "mean_active_obstacle_contact_frac", "min_area_ratio",
                 "max_link_separation_ratio")
 
@@ -167,9 +167,9 @@ class MAPPOTrainer:
                 self.run.log_metrics(stats)
                 if self.update % max(tc.logging.log_interval, 1) == 0:
                     self.log.info(
-                        "upd %d/%d steps %d | ep %d ret %.0f goal %.2f prog %.2f fail %.2f | kl %.4f clip %.2f ev %.2f std %.2f | %.0f sps",
+                        "upd %d/%d steps %d | ep %d ret %.0f succ %.2f prog %.2f fail %.2f | kl %.4f clip %.2f ev %.2f std %.2f | %.0f sps",
                         self.update, num_updates, self.env_steps, len(episodes), stats.get("ep_return", float("nan")),
-                        stats.get("ep_goal", float("nan")), stats.get("ep_progress_fraction", float("nan")),
+                        stats.get("ep_success", float("nan")), stats.get("ep_progress_fraction", float("nan")),
                         stats.get("ep_failure", float("nan")), stats["approx_kl"], stats["clip_fraction"],
                         stats["explained_variance"], stats["action_std"], stats["update_env_steps_per_s"])
                 li = tc.logging
@@ -288,14 +288,16 @@ class MAPPOTrainer:
         save_dir = self.run.path / "eval" / f"update_{self.update:06d}" if li.save_eval_trajectories else None
         summary, _ = self.evaluate(self.cfg.seeds.validation, save_dir)
         self.run.log_metrics({"type": "validation", "update": self.update, "env_steps": self.env_steps, **summary})
-        self.log.info("validation @%d: goal %.2f success %.2f progress %.2f fail %.2f", self.update,
-                      summary["goal_rate_success_or_finish_line"], summary["success_rate"],
-                      summary["mean_progress_fraction"], summary["failure_rate"])
-        key = (summary["goal_rate_success_or_finish_line"], summary["mean_progress_fraction"])
-        if self.best_key is None or key > self.best_key:
+        self.log.info("validation @%d: success %.2f progress %.2f time-to-goal %s fail %.2f", self.update,
+                      summary["success_rate"], summary["mean_progress_fraction"],
+                      summary["mean_time_to_goal_s"], summary["failure_rate"])
+        # Ties on success rate are broken by faster arrival, then by progress.
+        t = summary["mean_time_to_goal_s"]
+        key = (summary["success_rate"], -t if t is not None else float("-inf"), summary["mean_progress_fraction"])
+        if self.best_key is None or key > tuple(self.best_key):
             self.best_key = key
             self.save("best.pt")
-            self.log.info("new best checkpoint (goal %.2f, progress %.2f)", *key)
+            self.log.info("new best checkpoint (success %.2f, time-to-goal %s, progress %.2f)", key[0], t, key[2])
         return summary
 
     def final_test(self) -> dict:

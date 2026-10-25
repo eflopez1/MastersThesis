@@ -117,6 +117,13 @@ class ObservationConfig:
     contact_includes_walls: bool = True
     velocity_scale: float = 0.25
     clip: float = 10.0
+    # Unit direction pointing from the touched obstacle/wall toward the bot (zeros when not touching).
+    contact_normal: bool = True
+    # Per-bot distance rays to obstacles (and optionally walls), world frame, evenly spaced.
+    range_sensors: bool = False
+    range_num_rays: int = 8
+    range_max_in_R: float = 1.0  # ray length beyond the bot surface
+    range_includes_walls: bool = True
     # Optional global descriptors exposed to actors: shape_radial | shape_fourier | contact_map
     actor_global: list[str] = field(default_factory=list)
 
@@ -134,11 +141,9 @@ class DescriptorConfig:
 class RewardConfig:
     progress_weight: float = 2000.0
     clip_negative_progress: bool = True
-    success_radius_in_R: float = 0.5
-    success_bonus: float = 10.0
-    use_finish_line: bool = True
+    # Success = centroid crosses the finish line at target_x - margin (legacy "passed target" test).
     finish_line_margin_in_R: float = 2.0
-    finish_line_bonus: float = 5.0
+    success_bonus: float = 5.0  # legacy finish-line bonus
     timeout_penalty: float = -10.0
     failure_penalty: float = -10.0
     contact_penalty_weight: float = 0.0
@@ -182,6 +187,10 @@ class EnvConfig:
         _require(self.observation.contact_window in {"any_substep", "last_substep"}, "invalid observation.contact_window")
         bad = set(self.observation.actor_global) - {"shape_radial", "shape_fourier", "contact_map"}
         _require(not bad, f"unknown observation.actor_global entries: {sorted(bad)}")
+        _require(self.observation.range_num_rays >= 1 and self.observation.range_max_in_R > 0,
+                 "observation.range_num_rays >= 1 and range_max_in_R > 0 required")
+        _require(0 <= self.reward.finish_line_margin_in_R < self.arena.target_distance_in_R,
+                 "reward.finish_line_margin_in_R must be in [0, arena.target_distance_in_R)")
         _require(self.descriptors.shape_units in {"membrane", "active"}, "invalid descriptors.shape_units")
         _require(self.descriptors.orientation in {"world", "bot0", "velocity", "pca"}, "invalid descriptors.orientation")
         _require(1 <= self.descriptors.contact_sectors <= b.num_bots, "descriptors.contact_sectors must be in [1, num_bots]")

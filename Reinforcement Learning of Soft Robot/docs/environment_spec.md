@@ -31,8 +31,9 @@ exceeds the 5 m/s numerical-failure threshold after 1.2 s.
 Start: centroid at (R + r_bot + 1.2 w_wall, H/2). Target: start + (25 R, 0) = 6.17 m ahead.
 Obstacle layouts are drawn from the reset seed; training and evaluation seed ranges must be disjoint.
 
-* `success`: |target - centroid| < 0.5 R (terminated, +10).
-* `finish_line` (legacy "passed target"): target_x - centroid_x < 2 R (terminated, +5).
+* `success`: centroid_x >= target_x - 2 R, i.e. the finish line 23 R (5.67 m) from the start is crossed
+  (terminated, +5; the legacy "passed target" test). The target point is kept for the observation and the progress
+  reward. A separate success radius was removed because the finish line always fired first.
 * `failure`: non-finite state, any body speed > 5 m/s, or a link stretched > 1.05 x max (terminated, -10).
 * `truncated`: 60 s (240 control steps) elapsed (-10, legacy timeout penalty).
 
@@ -51,6 +52,8 @@ and `action_clipped_fraction`.
 | 2:4 | centroid velocity = mean active-bot velocity | / 0.25 m/s |
 | 4:6 | own position - centroid | / R |
 | 6 | environment-contact flag (obstacle or wall, any substep of the last step) | 0/1 |
+| 7:9 | contact direction (`contact_normal`, default on) | unit vector, zeros when free |
+| next K | range rays (`range_sensors`, default off) | free distance / ray length, in [0, 1] |
 | opt. | absolute centroid | / arena size |
 | opt. | role encoding (`one_hot` or `ring_angle`) | |
 | opt. | actor-visible global descriptors (`actor_global`) | |
@@ -59,10 +62,22 @@ Centroid and velocity use active bots only. Spec items "centroid velocity" and "
 velocity" are mathematically identical, so they appear once. The contact flag comes from Pymunk
 `begin`/`separate` collision callbacks (physical contact, not a distance threshold).
 
-## Global state (critic / evaluator only by default) — 104 dims
+**Contact direction** is the mean of the collision normals of the bot's current arbiters with obstacles (and walls
+when `contact_includes_walls`), oriented from the obstacle toward the bot, then normalised. It reflects contacts at
+the end of the control step, so it can be zero while the any-substep flag is 1. It models directional touch sensing.
+
+**Range rays** are K = `range_num_rays` evenly spaced world-frame rays (index 0 = +x, counter-clockwise), starting at
+the bot's surface with length `range_max_in_R` x R (default 1 R = 0.247 m). They report the free fraction of the ray
+before the first obstacle (or wall, if `range_includes_walls`); the robot's own bodies are ignored via shape-filter
+categories that do not alter collisions. They model short-range proximity sensors and are a stronger hardware
+assumption than touch.
+
+Enabled sensing blocks are also appended per bot to the global state (2N and KN dims).
+
+## Global state (critic / evaluator only by default) — 124 dims by default
 target-centroid (2), centroid velocity (2), all bot relative positions (20) and velocities (20),
-contact flags (10), radial shape descriptor (32), Fourier shape descriptor (12), ordered contact
-map (5), episode time fraction (1).
+contact flags (10), enabled sensing per bot (contact direction 20 by default; range rays 10K), radial shape
+descriptor (32), Fourier shape descriptor (12), ordered contact map (5), episode time fraction (1).
 
 * Radial shape: 8 angular sectors about the centroid, per sector [mean, min, max radius / R,
   occupancy]. The frame is configurable (`world`, `bot0`, `velocity`, `pca`); it cannot represent folded or
@@ -74,7 +89,7 @@ map (5), episode time fraction (1).
 
 ## Reward (shared by all agents)
 `progress` (2000 x metres of distance reduction, negative values clipped to 0 — legacy), success
-(+10), finish line (+5), timeout (-10), failure (-10), and three components that default to off:
+(+5, crossing the finish line), timeout (-10), failure (-10), and three components that default to off:
 `contact` (-w x fraction of active bots in contact), `control_effort`, `deformation`. Every
 component is reported separately in `reward_components`. Only the progress shaping and the bonuses
 come from the legacy code. All weights are research hypotheses.

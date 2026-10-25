@@ -19,6 +19,9 @@ from softbody_marl.physics.geometry import (
 
 CT_OBSTACLE, CT_WALL, CT_ACTIVE, CT_PASSIVE, CT_INTERIOR = 1, 2, 3, 4, 5
 _KIND_TO_CT = {ACTIVE: CT_ACTIVE, PASSIVE: CT_PASSIVE, INTERIOR: CT_INTERIOR}
+# Query categories only; every mask stays "all", so collisions are unaffected.
+CAT_ROBOT, CAT_OBSTACLE, CAT_WALL = 0b001, 0b010, 0b100
+_ALL = pymunk.ShapeFilter.ALL_MASKS()
 
 
 @dataclass
@@ -57,6 +60,7 @@ class SoftBodyWorld:
             kind = int(layout.kinds[i])
             shape.friction = b.interior_friction if kind == INTERIOR else b.membrane_friction
             shape.collision_type = _KIND_TO_CT[kind]
+            shape.filter = pymunk.ShapeFilter(categories=CAT_ROBOT, mask=_ALL)
             space.add(body, shape)
             self.bodies.append(body)
             self._shape_index[shape] = i
@@ -106,6 +110,7 @@ class SoftBodyWorld:
             seg = pymunk.Segment(self.space.static_body, p, q, h)
             seg.friction = a.wall_friction
             seg.collision_type = CT_WALL
+            seg.filter = pymunk.ShapeFilter(categories=CAT_WALL, mask=_ALL)
             self.space.add(seg)
 
     def _add_obstacles(self, obstacles: list[ObstacleSpec]) -> None:
@@ -116,10 +121,12 @@ class SoftBodyWorld:
                 for i in range(len(v)):
                     seg = pymunk.Segment(self.space.static_body, tuple(v[i]), tuple(v[(i + 1) % len(v)]), o.segment_radius)
                     seg.friction, seg.collision_type = o.friction, CT_OBSTACLE
+                    seg.filter = pymunk.ShapeFilter(categories=CAT_OBSTACLE, mask=_ALL)
                     self.space.add(seg)
             else:
                 circ = pymunk.Circle(self.space.static_body, spec.outer_radius, offset=spec.center)
                 circ.friction, circ.collision_type = o.friction, CT_OBSTACLE
+                circ.filter = pymunk.ShapeFilter(categories=CAT_OBSTACLE, mask=_ALL)
                 self.space.add(circ)
 
     def _install_contact_handlers(self) -> None:
@@ -195,6 +202,49 @@ class SoftBodyWorld:
 
     def positions(self) -> np.ndarray:
         return np.array([tuple(b.position) for b in self.bodies], dtype=float)
+
+    def contact_normals(self, body_idx: np.ndarray, include_walls: bool) -> np.ndarray:
+        """Unit vector per body pointing from the touched obstacle/wall toward the body, from the arbiters
+        at the end of the last substep (zeros when not touching). Multiple contacts are averaged."""
+        env_types = (CT_OBSTACLE, CT_WALL) if include_walls else (CT_OBSTACLE,)
+        out = np.zeros((len(body_idx), 2))
+        for k, i in enumerate(body_idx):
+            body = self.bodies[i]
+            acc = [0.0, 0.0]
+
+            def visit(arb, body=body, acc=acc):
+                s0, s1 = arb.shapes
+                own_first = s0.body is body
+                other = s1 if own_first else s0
+                if other.collision_type in env_types:
+                    n = arb.normal  # points from shapes[0] to shapes[1]
+                    sign = -1.0 if own_first else 1.0
+                    acc[0] += sign * n.x
+                    acc[1] += sign * n.y
+
+            body.each_arbiter(visit)
+            norm = np.hypot(acc[0], acc[1])
+            if norm > 1e-9:
+                out[k] = (acc[0] / norm, acc[1] / norm)
+        return out
+
+    def range_scan(self, body_idx: np.ndarray, num_rays: int, max_range: float, include_walls: bool) -> np.ndarray:
+        """Free distance along ``num_rays`` world-frame rays from each body's surface, / max_range, in [0, 1]."""
+        mask = CAT_OBSTACLE | (CAT_WALL if include_walls else 0)
+        qfilter = pymunk.ShapeFilter(mask=mask)
+        angles = 2 * np.pi * np.arange(num_rays) / num_rays
+        dirs = np.stack([np.cos(angles), np.sin(angles)], axis=1)
+        out = np.ones((len(body_idx), num_rays))
+        radii = self.layout.radii
+        for k, i in enumerate(body_idx):
+            p = np.asarray(self.bodies[i].position)
+            starts = p + dirs * radii[i]
+            ends = starts + dirs * max_range
+            for r in range(num_rays):
+                hit = self.space.segment_query_first(tuple(starts[r]), tuple(ends[r]), 0.0, qfilter)
+                if hit is not None:
+                    out[k, r] = hit.alpha
+        return out
 
     def velocities(self) -> np.ndarray:
         return np.array([tuple(b.velocity) for b in self.bodies], dtype=float)

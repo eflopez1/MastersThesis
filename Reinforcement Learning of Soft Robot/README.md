@@ -63,8 +63,7 @@ derivation and measurements.
 
 | Outcome | Condition | Type |
 |---|---|---|
-| success | centroid within 0.5 R of the target | terminal |
-| finish line | centroid within 2 R of the target's x-coordinate | terminal |
+| success | centroid crosses the finish line at x = target_x − 2 R (23 R from the start) | terminal |
 | failure | non-finite state, any body faster than 5 m/s, or a link stretched > 5 % beyond its limit | terminal |
 | timeout | 60 s elapsed | truncation |
 
@@ -78,7 +77,7 @@ Agents `bot_0 … bot_9` act simultaneously, share one team reward, and terminat
 **Action** (per agent): `Box(-1, 1, (2,))`, a world-frame force command. Out-of-range values are clipped and the
 clipped fraction is logged. The applied force is `action × 2 N × force_scale`.
 
-**Local observation** (per agent, 7 dims by default; actors see only this):
+**Local observation** (per agent, 9 dims by default; actors see only this):
 
 | Dims | Quantity |
 |---|---|
@@ -86,13 +85,17 @@ clipped fraction is logged. The applied force is `action × 2 N × force_scale`.
 | 2 | centroid velocity (equal to the mean bot velocity) |
 | 2 | own position relative to the centroid (/ R) |
 | 1 | binary environment-contact flag, from physics collision callbacks |
+| 2 | contact direction: unit vector from the touched obstacle/wall toward the bot, zeros when free (`contact_normal`, default on) |
+| K | range sensing: free distance along K world-frame rays from the bot surface, / ray length (`range_sensors`, default off; K = 8, length 1 R) |
 
-Optional additions: absolute position, a role encoding (`one_hot` / `ring_angle`), and any of the global descriptors
-below.
+The two sensing blocks are independent booleans in `env.observation`, so each can be studied alone, together, or not at
+all (`mappo_no_sensing.yaml` is the legacy-style binary-contact-only observation). Other optional additions: absolute
+position, a role encoding (`one_hot` / `ring_angle`), and any of the global descriptors below.
 
-**Global state** `env.state()` (104 dims; for critics and evaluation): all bot relative positions and velocities,
-contact flags, an 8-sector radial shape descriptor, Fourier shape magnitudes (invariant to translation and rotation;
-handles concave and folded shapes), a ring-ordered contact map, and the episode time fraction.
+**Global state** `env.state()` (124 dims by default; for critics and evaluation): all bot relative positions and
+velocities, contact flags and any enabled sensing, an 8-sector radial shape descriptor, Fourier shape magnitudes
+(invariant to translation and rotation; handles concave and folded shapes), a ring-ordered contact map, and the
+episode time fraction.
 
 ## Reward
 
@@ -102,7 +105,7 @@ metrics:
 | Component | Default | Notes |
 |---|---|---|
 | `progress` | 2000 × (distance reduction in m), negatives clipped to 0 | Legacy shaping. Rewards oscillation; judge by task success, not return |
-| `success` / `finish_line` | +10 / +5 | Terminal bonuses |
+| `success` | +5 | Terminal bonus for crossing the finish line (legacy value) |
 | `timeout` / `failure` | −10 / −10 | |
 | `contact` | weight 0 (off) | −w × fraction of bots touching obstacles (optionally walls) |
 | `control_effort` | 0 (off) | Penalty on mean squared action |
@@ -116,7 +119,7 @@ signal. The contact-penalty ablation uses 10 as a starting hypothesis; sweep it.
 **Centralised training, decentralised execution** with PPO (`src/softbody_marl/training/`):
 
 ```
-          local obs o_i (7-d)                        global state s (104-d)
+          local obs o_i (9-d)                        global state s (124-d)
 bot_i ───────────────────────► shared actor π(a_i|o_i)        │
                                    │ Gaussian force           ▼
                                    ▼                  critic V(s) / V(s,o_i) / V(o_i)
@@ -157,6 +160,10 @@ softbody-benchmark --steps 400 --workers 1 2 4 8                   # measure thr
 softbody-train --config configs/train/smoke.yaml                   # seconds-long pipeline check
 caffeinate -i softbody-train --config configs/train/mappo.yaml     # reference run (macOS: prevent sleep)
 softbody-plot runs/train/<run_a> runs/train/<run_b>                # learning curves
+softbody-sweep --configs configs/train/mappo.yaml configs/train/ippo.yaml --seeds 0 1 2 --name critic
+softbody-sweep --configs configs/train/mappo.yaml --grid "env.reward.contact_penalty_weight=1,10,50" --name contact
+softbody-compare runs/sweeps/critic                                # test metrics, mean ± std over seeds
+zsh scripts/local_campaign.sh 1 2                                  # staged multi-day local campaign (see script)
 softbody-rollout --checkpoint runs/train/<run>/checkpoints/best.pt --seeds 20000 20100
 softbody-view --checkpoint runs/train/<run>/checkpoints/best.pt --seed 20000
 softbody-train --resume runs/train/<run>                           # continue an interrupted run
@@ -190,6 +197,7 @@ lists every value explicitly.
 | `default.yaml` | obstacle field, legacy-effective dynamics |
 | `no_obstacles.yaml` | free space (sanity checks, curricula) |
 | `contact_penalty.yaml` | contact penalty enabled |
+| `range_sensing.yaml` | range rays instead of contact direction |
 | `nominal_si.yaml` | `force_scale = 1` |
 
 | Training configs (`configs/train/`) | Studies |
@@ -201,9 +209,13 @@ lists every value explicitly.
 | `mappo_framestack4.yaml` | 0.75 s observation history |
 | `mappo_role_onehot.yaml` | ring-position encoding for actors |
 | `mappo_no_sharing.yaml` | separate actor per bot |
+| `mappo_no_obstacles.yaml` | free-space learnability check (300k steps) |
+| `mappo_no_sensing.yaml` | binary contact flag only |
+| `mappo_range_sensing.yaml` | range rays instead of contact direction |
 | `smoke.yaml` | pipeline smoke test (not an experiment) |
 
-For multi-seed studies, repeat a config with `--set train.seeds.seed=<k>`.
+For multi-seed studies, use `softbody-sweep`. It runs every config × seed sequentially under
+`runs/sweeps/<name>/` and writes `comparison.md` with test metrics as mean ± std across seeds.
 
 ## Outputs and reproducibility
 
@@ -221,7 +233,7 @@ Each run creates `runs/<group>/<timestamp>_<name>/`:
 Training metrics include:
 - losses, KL, clip fraction, explained variance and action std;
 - per-update throughput;
-- per-episode return, every reward component, success / finish-line / failure rates and progress;
+- per-episode return, every reward component, success / failure rates and progress;
 - contact statistics and deformation (area ratio, link stretch).
 
 Evaluation episodes also report path efficiency, circularity and interior escapes. Trajectories can be saved as
@@ -232,24 +244,27 @@ Evaluation episodes also report path efficiency, circularity and interior escape
 All numbers were measured on an Apple M2 (8 cores) with Python 3.13 and are reproducible with the commands above.
 
 **Throughput:**
-- 24.7k physics substeps/s.
+- About 15.6k physics substeps/s under contact load (≈24.6k with the body at rest).
 - 279 environment steps/s in one process (≈70× real time).
 - 1,329 steps/s aggregate with 8 processes.
 - About 900 steps/s during training with 8 environments.
-- About 44 % of step time is observation and descriptor computation, which is the first optimisation target.
+- About 90 % of step time is the Pymunk solver. Observations, descriptors and reward take about 10 %, so Python-side
+  optimisation has little headroom.
 
-**Scripted baselines** (20 validation layouts):
+**Obstacle field, 100 held-out test layouts (seeds 20000–20099):**
 
-| Controller | Success | Finish line | Progress | Failures | Steps with obstacle contact |
-|---|---|---|---|---|---|
-| push +x | 0 % | 20 % | 0.44 ± 0.30 | 5 % | 78 % |
-| target-seek | 0 % | 20 % | 0.44 ± 0.32 | 5 % | 78 % |
-| zero | 0 % | 0 % | 0.00 | 0 % | 0 % |
+| Controller | Success (finish line) | Progress | Failures | Steps with obstacle contact |
+|---|---|---|---|---|
+| push +x | 19 % | 0.47 ± 0.26 | 5 % | 78 % |
+| target-seek | 20 % | 0.48 ± 0.28 | 6 % | 77 % |
+| zero | 0 % | 0.00 | 0 % | 0 % |
+| MAPPO probe (102k env steps, ≈5 % of budget, contact-flag-only observation) | 10 % | 0.41 ± 0.24 | 1 % | 72 % |
 
-**MAPPO probe** (102k environment steps ≈ 5 % of the default budget; 100 test layouts): 0 % success, 10 % finish
-line, progress 0.41 ± 0.24, 1 % failures. Learning diagnostics were healthy (explained variance 0.8–0.9, KL ≈ 0.003),
-but the policy does not yet beat the baselines. The baselines were evaluated on different (validation) layouts, so
-this comparison is not yet like-for-like.
+In free space (`mappo_no_obstacles.yaml`, 300k steps), MAPPO reaches the finish line in 100 % of test episodes in
+20.75 s, comparable to constant pushing (19.3 s).
+
+The short MAPPO probe does not yet beat the scripted controllers. Its learning diagnostics were healthy (explained
+variance 0.8–0.9, KL ≈ 0.003).
 
 ## Repository layout
 
@@ -263,7 +278,7 @@ src/softbody_marl/
   training/              train config, vectorised envs, networks, MAPPO trainer, policy loading
   evaluation/            rollouts, task metrics, summaries
   render/                optional pygame renderer (consumes RenderFrame snapshots only)
-  cli/                   softbody-{train,rollout,view,benchmark,plot}
+  cli/                   softbody-{train,sweep,compare,rollout,view,benchmark,plot}
 configs/env/, configs/train/   experiment definitions
 tests/                         pytest suite
 docs/                          environment spec, ADRs, legacy audit
@@ -280,4 +295,5 @@ runs/                          experiment outputs (git-ignored)
 - [docs/audit_report.md](docs/audit_report.md): defects found in the legacy code and how they were resolved.
 - [deprecated/README.md](deprecated/README.md): legacy tasks (tunnel, object manipulation), reward variants and
   hyperparameters not yet ported.
+- [docs/aws_plan.md](docs/aws_plan.md): how to run sweeps on AWS (instance choice, budget, spot/resume, S3 sync).
 - [CHANGELOG.md](CHANGELOG.md): release history.

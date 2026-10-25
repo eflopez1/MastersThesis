@@ -8,10 +8,10 @@ from pathlib import Path
 
 PANELS = [
     ("train", "ep_return", "training episode return"),
-    ("train", "ep_goal", "training goal rate"),
+    ("train", "ep_success", "training success rate"),
     ("train", "ep_progress_fraction", "training progress fraction"),
     ("train", "ep_steps_with_active_obstacle_contact_frac", "training contact-step fraction"),
-    ("validation", "goal_rate_success_or_finish_line", "validation goal rate"),
+    ("validation", "success_rate", "validation success rate"),
     ("validation", "mean_progress_fraction", "validation progress fraction"),
 ]
 

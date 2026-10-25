@@ -27,10 +27,10 @@ per-bot force control and reproducible experiments.
 5. pygame-ce 2.5 (LGPL) as an optional extra (`[render]`), never imported in headless code paths.
 
 ## Evidence (Apple M2, 8 cores, Python 3.13; runs/benchmarks)
-* 24,700 physics substeps/s; 279 env control steps/s single process (70x real time);
+* About 15,600 physics substeps/s under contact load (24,700 with the body at rest); 279 env control steps/s single process (70x real time);
   1,329 aggregate steps/s with 8 processes (5.1x).
-* About 44% of env-step time is observation/descriptor/metric computation in Python, which is the
-  first optimisation target.
+* About 90% of env-step time is the Pymunk solver (cProfile and in-rollout timing); observations,
+  descriptors and reward are about 10%. Speed-ups must come from parallelism or solver settings.
 
 ## Consequences
 * Simulation is CPU-bound and parallelises across processes; a GPU is only useful for the network

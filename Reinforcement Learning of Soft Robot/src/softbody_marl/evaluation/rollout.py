@@ -74,13 +74,12 @@ def run_episode(core: SoftBodyNavCore, controller: Controller, seed: int | None,
     path_len = float(np.sum(np.linalg.norm(np.diff(np.vstack([start, cent]), axis=0), axis=1)))
     displacement = float(np.linalg.norm(res.info["centroid"] - start))
     progress = float(core.target_distance - res.info["distance"])
-    reached = res.info["success"] or res.info["finish_line"]
+    reached = res.info["success"]
     metrics = {
         "seed": seed,
         "steps": core.steps,
         "sim_time_s": res.info["time"],
         "success": bool(res.info["success"]),
-        "finish_line": bool(res.info["finish_line"]),
         "time_to_goal_s": res.info["time"] if reached else None,
         "terminated": res.terminated,
         "truncated": res.truncated,
@@ -129,7 +128,6 @@ def summarize(records: list[EpisodeRecord]) -> dict[str, float]:
     return {
         "episodes": n,
         "success_rate": sum(x["success"] for x in m) / n,
-        "goal_rate_success_or_finish_line": sum(x["success"] or x["finish_line"] for x in m) / n,
         "failure_rate": sum(x["failure_reason"] is not None for x in m) / n,
         "mean_time_to_goal_s": float(np.mean(reached)) if reached else None,
         "mean_progress_fraction": mean("progress_fraction"),

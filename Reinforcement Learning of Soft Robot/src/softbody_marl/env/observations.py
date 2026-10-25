@@ -21,6 +21,8 @@ class BodySnapshot:
     active_contact: np.ndarray  # (N,) bool, environment contact per obs config
     time_fraction: float
     globals: dict[str, np.ndarray]  # shape_radial / shape_fourier / contact_map
+    contact_normal: np.ndarray  # (N, 2) or (N, 0) when disabled
+    ranges: np.ndarray  # (N, rays) in [0, 1] or (N, 0) when disabled
 
 
 class ObservationBuilder:
@@ -30,7 +32,8 @@ class ObservationBuilder:
     [2:4]  centroid velocity / velocity_scale        (== mean active-bot velocity)
     [4:6]  (bot position - centroid) / R
     [6]    environment-contact flag (0/1)
-    then optional, in order: absolute centroid / arena size (2), role encoding, actor_global descriptors.
+    then optional, in order: contact normal (2), range rays (range_num_rays), absolute centroid / arena size (2),
+    role encoding, actor_global descriptors.
     """
 
     def __init__(self, cfg: EnvConfig, R: float, target_distance: float, global_dims: dict[str, int]):
@@ -41,7 +44,9 @@ class ObservationBuilder:
         o = cfg.observation
         role_dim = {"none": 0, "one_hot": self.n, "ring_angle": 2}[o.role_encoding]
         self.global_keys = list(o.actor_global)
-        self.dim = 7 + (2 if o.include_absolute_position else 0) + role_dim + sum(global_dims[k] for k in self.global_keys)
+        self.sensing_dim = sensing_dim(cfg)
+        self.dim = (7 + self.sensing_dim + (2 if o.include_absolute_position else 0) + role_dim
+                    + sum(global_dims[k] for k in self.global_keys))
         angles = 2 * np.pi * np.arange(self.n) / self.n
         self._role = {
             "none": np.zeros((self.n, 0)),
@@ -57,6 +62,8 @@ class ObservationBuilder:
             np.broadcast_to(s.centroid_vel / o.velocity_scale, (n, 2)),
             (s.active_pos - s.centroid) / self.R,
             s.active_contact.astype(float)[:, None],
+            s.contact_normal,
+            s.ranges,
         ]
         if o.include_absolute_position:
             a = self.cfg.arena
@@ -68,6 +75,11 @@ class ObservationBuilder:
         return np.clip(obs, -o.clip, o.clip).astype(np.float32)
 
 
+def sensing_dim(cfg: EnvConfig) -> int:
+    o = cfg.observation
+    return (2 if o.contact_normal else 0) + (o.range_num_rays if o.range_sensors else 0)
+
+
 def global_state(s: BodySnapshot, R: float, target_distance: float, velocity_scale: float, clip: float) -> np.ndarray:
     """Centralized state for critics/evaluators. Never fed to actors unless configured via actor_global."""
     parts = [
@@ -76,6 +88,8 @@ def global_state(s: BodySnapshot, R: float, target_distance: float, velocity_sca
         ((s.active_pos - s.centroid) / R).ravel(),
         (s.active_vel / velocity_scale).ravel(),
         s.active_contact.astype(float),
+        s.contact_normal.ravel(),
+        s.ranges.ravel(),
         s.globals["shape_radial"],
         s.globals["shape_fourier"],
         s.globals["contact_map"],

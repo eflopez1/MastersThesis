@@ -1,0 +1,6 @@
+# Ablation: sensing. Range rays instead of contact direction.
+base: default.yaml
+env:
+  observation:
+    contact_normal: false
+    range_sensors: true

@@ -65,8 +65,6 @@ class EpisodeEnv:
                 "return": self._ret,
                 "length": self._len,
                 "success": bool(info["success"]),
-                "finish_line": bool(info["finish_line"]),
-                "goal": bool(info["success"] or info["finish_line"]),
                 "failure": info["failure_reason"] is not None,
                 "failure_reason": info["failure_reason"],
                 "truncated": truncated,

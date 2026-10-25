@@ -1,0 +1,375 @@
+# Project: Multi-Agent Reinforcement Learning for Soft-Body Navigation Through Obstacles
+
+## Role and objective
+
+Act as a senior robotics simulation engineer, reinforcement-learning researcher, and scientific software architect.
+
+Your task is to modernize an existing 2D soft-robotics simulation and develop a reproducible research repository for training a multi-agent reinforcement-learning policy to navigate through obstacle fields while deforming its body.
+
+The existing implementation uses PyMunk for physics and PyGame for visualization. It contains existing work that must be inspected before any redesign. Do not assume the old implementation is disposable, correct, or compatible with modern libraries.
+
+The goal is not merely to produce a demonstration. Build a robust, testable, configurable experimental platform suitable for investigating cooperative decentralized control of a deformable, particle-based robotic system.
+
+Begin by inspecting the repository. Do not implement a large rewrite until you have documented the current mechanics, identified uncertainties, and justified the proposed architecture.
+
+## 1. Research problem
+
+The simulated system consists of:
+
+- An active boundary composed of circular agents (bots).
+- Active bots connected to neighboring boundary units by springs.
+- Passive boundary units connected in series with active bots, also using springs. Render active and passive units in visibly different colors.
+- Passive particles inside the boundary representing granular material, referred to as sand.
+- Static obstacles distributed throughout a 2D environment.
+
+The active boundary units collectively propel and deform the system. The intended task is to navigate from a starting configuration to a target through obstacle fields while adapting the body's shape to available passages.
+
+Treat the system as a coupled physical system with multiple control agents, not as independent robots moving without mechanical interaction.
+
+### Geometric and mechanical constraints
+
+The intended geometry includes a constraint relating neighboring boundary units to the diameter of the interior region: their separation should be no more than 75% of that diameter.
+
+The precise interpretation is not yet confirmed. Inspect the original code and report whether this corresponds to a spring rest length, a maximum allowable separation, a geometric constraint, or another rule. Do not silently substitute one for another.
+
+Distinguish:
+- Spring rest lengths and stiffness.
+- Damping.
+- Maximum separation or other hard constraints.
+- Collision radii and contact geometry.
+- Numerical stability requirements.
+
+Preserve existing behavior where it matches the intended model. If the original implementation contradicts the stated requirements, document the discrepancy and recommend a resolution before changing it.
+
+Do not invent physical parameters that cannot be recovered from the code. Expose uncertain parameters in configuration files and identify reasonable experimental ranges where necessary.
+
+## 2. Multi-agent control model
+
+Each active boundary bot is a control agent. All agents act at each control step, and their actions influence the coupled physical system through their individual force applications and the resulting mechanics.
+
+### Action space
+
+Each active agent produces a two-dimensional force command:
+
+- F_x: horizontal force.
+- F_y: vertical force.
+
+Use a continuous, bounded action space with configurable force limits.
+
+Document the units, coordinate frame, force scaling, action clipping, action application point, and duration for which an action is held.
+
+Keep commanded forces distinct from actual applied forces in diagnostics.
+
+Determine from the original code whether forces are currently applied directly to active particles, to the system as a whole, or through another mechanism. The intended initial design is per-agent force control, but flag any mismatch for review.
+
+Do not add unrequested actuators, joint controllers, or direct particle-position control.
+
+### Agent observations
+
+Each agent must receive a local observation containing, at minimum:
+
+1. The position of the system centroid, calculated as the arithmetic mean of all active bots' positions.
+2. The velocity of that centroid.
+3. The current bot's position relative to the centroid.
+4. The mean velocity of the active bots.
+5. A contact indicator describing whether the current bot is touching an environmental obstacle.
+
+The centroid and mean velocity must be calculated consistently from active bots only. Do not substitute the center of mass of the entire system without explicitly defining a separate quantity.
+
+The local contact indicator must be based on actual physical contact where available, not merely on a distance threshold. If the physics engine cannot provide reliable contact information, document and test the alternative.
+
+The current observation is a starting specification, not necessarily sufficient for the task. Navigation will generally require information about the target, such as the target position relative to the centroid. Identify this missing information and propose the smallest defensible addition.
+
+Preserve the principle of decentralized observation: agents must not automatically receive the full positions and velocities of all other particles.
+
+Document the exact observation vector, its dimensionality, coordinate conventions, units, normalization, and handling of degenerate states.
+
+## 3. Global shape and contact representations
+
+Implement a global state representation for training diagnostics, visualization, evaluation, and possible centralized-critic use.
+
+Develop and compare at least these representations:
+
+### A. Regional shape descriptor
+
+Represent the active boundary relative to the active-bot centroid. Evaluate a body-relative angular representation with configurable sectors and boundary-radius statistics.
+
+Determine how body orientation will be estimated and how the representation behaves under translation and rotation.
+
+Account for the limitations of radial descriptors for concave or folded shapes. Consider a contour-based or Fourier descriptor as an alternative if the original geometry warrants it.
+
+### B. Regional contact map
+
+Partition the active boundary into ordered sectors. For each sector, calculate the fraction of active boundary units in obstacle contact.
+
+Keep distinct contact categories for:
+- Active boundary versus obstacle.
+- Passive boundary versus obstacle.
+- Interior particles versus obstacle.
+- Self-contact, if physically modeled.
+
+Do not equate obstacle contact with a particular sector being blocked unless the contact geometry supports that interpretation.
+
+### C. Observation-access policy
+
+Implement global descriptors independently of the individual agents' observations.
+
+Initially, make them available to the evaluator and centralized critic. Keep actor access configurable so that experiments can compare strictly local observations against augmented observations containing global shape or contact information.
+
+Document the information available to each actor during training and execution.
+
+## 4. Physics engine and simulation architecture
+
+Audit the existing PyMunk/PyGame implementation before selecting a replacement.
+
+Evaluate at least:
+- Modernized PyMunk with headless execution.
+- MuJoCo, if its available modeling capabilities faithfully support the intended particle and deformable-boundary mechanics.
+- NVIDIA Warp or another custom GPU-accelerated approach if the mechanics and required throughput justify the additional engineering effort.
+
+These are candidates, not mandatory dependencies. Verify current official documentation, supported APIs, compatibility, maintenance status, and licensing before making recommendations. Do not assume that a GPU simulator is automatically faster or more accurate.
+
+Compare candidates using:
+- Fidelity to the original mechanics.
+- Contact and collision behavior.
+- Spring and constraint support.
+- Numerical stability.
+- Headless simulation throughput.
+- Parallel environment throughput.
+- Implementation and maintenance complexity.
+- Suitability for reproducible research.
+- Compatibility with the selected RL stack.
+
+Build a small benchmark using representative mechanics before committing to a full migration.
+
+Separate the following components:
+
+1. Physics simulation.
+2. Environment and episode management.
+3. Multi-agent observation and action processing.
+4. Reward calculation.
+5. Rendering and interactive debugging.
+6. Training.
+7. Evaluation and metrics.
+8. Experiment configuration and artifact management.
+
+Rendering must be optional. The simulator must be capable of running without a display or PyGame window.
+
+Preserve a visualization interface where practical. Modernize it to render active bots, passive boundary units, interior particles, obstacles, target, contact states, and relevant diagnostics. Use different colors for active and passive boundary units.
+
+If PyMunk remains the best initial choice, retain it and optimize the surrounding architecture before considering a more expensive rewrite.
+
+## 5. Multi-agent RL framework
+
+Use a maintained multi-agent interface compatible with the chosen simulator. Evaluate PettingZoo's parallel environment interface and compatible RL libraries, verifying current APIs and versions against official documentation.
+
+The environment must support simultaneous actions from all active agents.
+
+The initial algorithm candidate is parameter-shared MAPPO:
+- Actors share parameters across active bots.
+- Each actor receives its permitted local observation.
+- Agent identity, relative boundary position, or an equivalent role encoding must be evaluated to resolve symmetry and role ambiguity.
+- A centralized critic may access global state during training.
+- Execution must not require centralized state unless explicitly configured as a separate experiment.
+
+Implement the interface so that independent PPO or other baselines can be evaluated without rewriting the physics environment.
+
+Make agent count and boundary topology configurable where consistent with the underlying physics. If variable agent counts are unsupported by the selected algorithm, document the limitation and start with a fixed topology.
+
+Handle episode termination, truncation, reset, and simultaneous agent transitions correctly.
+
+## 6. Reward and objective design
+
+Do not assume a final reward function without documenting the underlying research choice.
+
+Inspect any existing reward logic and preserve it if it reflects the original research objective.
+
+If no usable reward exists, propose a configurable shared-team reward with components for:
+- Progress toward the target.
+- Successful target arrival.
+- Collision or obstacle-interaction costs where appropriate.
+- Excessive deformation or mechanical constraint violations.
+- Simulation failure or unacceptable states.
+- Optional control-effort regularization.
+
+Avoid assuming that all collisions should be penalized equally: contact can be necessary for a deformable body to navigate narrow passages.
+
+Explain potential reward hacking and distinguish task success from proxy metrics. Do not introduce arbitrary penalties that prevent the intended deformation.
+
+Provide a simple baseline controller and a reward diagnostic that records each reward component independently.
+
+Make reward weights configurable. State clearly which choices are research hypotheses rather than established facts.
+
+## 7. Experimental design
+
+Implement a reproducible experimental pipeline.
+
+Required capabilities:
+
+- Configuration-driven experiments.
+- Explicit random seeds.
+- Independent training and evaluation seeds.
+- Checkpoint saving and resumption.
+- Episode statistics and learning curves.
+- Per-component reward logging.
+- Success rate and time-to-target metrics.
+- Path efficiency.
+- Obstacle contacts and collision statistics.
+- Body deformation metrics.
+- Numerical failures and constraint violations.
+- Evaluation on held-out obstacle layouts.
+- Saved rollout trajectories for later analysis.
+- Comparison against a non-learning baseline.
+
+Support ablation studies comparing:
+1. Local observations only.
+2. Local observations plus global shape information.
+3. Local observations plus regional contact information.
+4. Shared versus independent policies, where practical.
+5. Alternative reward components, where justified.
+
+Do not claim that the policy has learned effective navigation based solely on decreasing training loss or increasing shaped reward. Report task success on held-out environments.
+
+## 8. Testing and validation
+
+Build automated tests before relying on long training runs.
+
+At minimum, test:
+
+### Physics
+- Correct particle and spring construction.
+- Boundary topology and intended spacing constraints.
+- Collision handling and obstacle contact detection.
+- Force limits and force application.
+- Numerical stability under representative parameter settings.
+
+### Environment
+- Deterministic resets under fixed seeds, within documented numerical limitations.
+- Valid observations and actions.
+- Correct centroid and mean-velocity calculations.
+- Correct regional shape and contact descriptors.
+- Correct episode termination and truncation.
+- No NaNs, infinities, or invalid physical states.
+
+### Multi-agent interface
+- All active agents receive valid observations.
+- Simultaneous actions are applied correctly.
+- Agent identifiers remain consistent.
+- Shared reward and per-agent reward semantics are explicit.
+- Centralized training does not leak unavailable global state into decentralized actors.
+
+### Learning smoke tests
+- A short training run completes without errors.
+- Checkpoints can be saved and restored.
+- Evaluation runs independently of training.
+- The baseline controller can be evaluated using the same metrics.
+
+Include assertions, meaningful error messages, and tests for degenerate cases.
+
+## 9. Performance and AWS readiness
+
+Design the code for later deployment to AWS EC2, but do not assume a particular instance type before benchmarking.
+
+Measure:
+- Physics steps per second in headless mode.
+- Environment steps per second.
+- Throughput with multiple environments.
+- Memory use.
+- Training throughput.
+- Evaluation throughput.
+
+Distinguish CPU simulation throughput from neural-network training throughput. Determine whether GPU acceleration is beneficial from actual measurements.
+
+Keep training independent of the visualization process. Support checkpointing and recovery from interrupted runs.
+
+Make it possible to store configurations, checkpoints, metrics, and evaluation rollouts in a structured experiment directory. Avoid hard-coded local filesystem paths and cloud credentials.
+
+## 10. Repository engineering standards
+
+Inspect and document the existing repository before modifying it.
+
+Create or modernize:
+- A clear source package.
+- A dependency specification with pinned or bounded compatible versions.
+- A configuration directory.
+- Automated tests.
+- Training and evaluation entry points.
+- A benchmark entry point.
+- Documentation of the physical model and observation/action spaces.
+- A README with installation and reproduction instructions.
+- A record of major architecture decisions.
+
+Prefer modular, typed, maintainable Python. Use vectorized operations where they improve performance without obscuring the mechanics.
+
+Keep dependencies justified. Do not introduce a framework solely because it is popular.
+
+Use version-control-friendly configuration and deterministic experiment metadata.
+
+Never fabricate benchmark results, successful training outcomes, physical validation, or test results.
+
+## 11. Required implementation workflow
+
+Work in the following phases.
+
+### Phase 1: Audit
+
+Inspect the repository, identify entry points, dependencies, physical equations, particle topology, actuation logic, reward functions, visualization, and current tests.
+
+Produce:
+- A concise repository map.
+- A description of the existing physical model.
+- A list of behaviors worth preserving.
+- A list of bugs, outdated dependencies, and architectural risks.
+- A list of unresolved research decisions.
+
+Do not modify the existing implementation during the initial audit.
+
+### Phase 2: Architecture proposal
+
+Recommend a physics engine and multi-agent stack using evidence from the audit and representative benchmarks.
+
+Provide a migration plan, expected benefits, trade-offs, and acceptance criteria.
+
+Ask for clarification before making irreversible decisions that materially change the physical model or scientific objective. For other uncertainties, state provisional assumptions and keep them configurable.
+
+### Phase 3: Minimal working environment
+
+Implement the smallest complete, headless environment that preserves the intended mechanics, supports the required observations and actions, and passes physics and interface tests.
+
+Include a basic visualization and baseline controller.
+
+### Phase 4: Multi-agent training
+
+Implement the selected baseline RL algorithm, centralized training where applicable, logging, checkpointing, and reproducible evaluation.
+
+Run a short smoke test before any long experiment.
+
+### Phase 5: Validation and optimization
+
+Measure throughput, evaluate held-out obstacle layouts, perform relevant ablations, and optimize only after correctness has been established.
+
+Do not begin expensive training runs or provision cloud infrastructure without an explicit cost and performance plan.
+
+## 12. Expected final deliverables
+
+Provide:
+
+1. An audit report.
+2. A justified architecture decision record.
+3. A working, tested repository.
+4. A documented physics and RL environment specification.
+5. A baseline controller.
+6. A configurable multi-agent training pipeline.
+7. Automated tests and a smoke-test report.
+8. Benchmark results with hardware and configuration details.
+9. Reproducible evaluation scripts and saved metrics.
+10. A README covering setup, training, evaluation, and visualization.
+11. A proposed AWS deployment plan with instance-selection rationale and estimated costs, clearly distinguished from any infrastructure actually provisioned.
+
+### Final instruction
+
+Prioritize scientific fidelity, explicit assumptions, and measurable correctness over speed of code generation.
+
+Do not silently change the robot's mechanics, observation semantics, action semantics, or task objective. When the original code and the research specification conflict, explain the conflict and ask for a decision.
+
+Begin with Phase 1: inspect the existing repository and return the audit findings and the most consequential unresolved questions before implementing the full system.

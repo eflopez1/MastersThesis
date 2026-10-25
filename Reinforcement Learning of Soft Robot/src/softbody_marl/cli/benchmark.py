@@ -15,6 +15,7 @@ from softbody_marl.config import load_env_config, to_dict
 from softbody_marl.env.core import SoftBodyNavCore
 from softbody_marl.env.pettingzoo_env import SoftBodyParallelEnv
 from softbody_marl.experiment import RunDirectory
+from softbody_marl.physics.world import SoftBodyWorld
 
 
 def _maxrss_mb() -> float:
@@ -38,20 +39,34 @@ def bench_core(config: str, overrides: list[str], steps: int, seed: int) -> dict
     physics_s = time.perf_counter() - t0
 
     core.reset(seed=seed)
-    n, t0 = 0, time.perf_counter()
-    while n < steps:
-        res = core.step(rng.uniform(-1, 1, (core.n, 2)))
-        n += 1
-        if res.terminated or res.truncated:
-            core.reset(seed=seed + n)
-    env_s = time.perf_counter() - t0
+    physics_in_env = 0.0
+    original_step = SoftBodyWorld.step
+
+    def timed_step(self, forces):
+        nonlocal physics_in_env
+        t = time.perf_counter()
+        original_step(self, forces)
+        physics_in_env += time.perf_counter() - t
+
+    SoftBodyWorld.step = timed_step
+    try:
+        n, t0 = 0, time.perf_counter()
+        while n < steps:
+            res = core.step(rng.uniform(-1, 1, (core.n, 2)))
+            n += 1
+            if res.terminated or res.truncated:
+                core.reset(seed=seed + n)
+        env_s = time.perf_counter() - t0
+    finally:
+        SoftBodyWorld.step = original_step
     return {
         "substeps_per_control_step": cfg.sim.substeps,
-        "physics_substeps_per_s": steps * cfg.sim.substeps / physics_s,
-        "physics_only_control_steps_per_s": steps / physics_s,
+        "physics_substeps_per_s": steps * cfg.sim.substeps / physics_in_env,
+        "physics_only_control_steps_per_s_at_rest": steps / physics_s,
         "env_control_steps_per_s": steps / env_s,
         "env_agent_steps_per_s": steps * core.n / env_s,
-        "observation_overhead_fraction": max(0.0, 1 - physics_s / env_s),
+        # Same rollout, so both terms see the same contact load.
+        "non_physics_fraction": 1 - physics_in_env / env_s,
         "reset_s": reset_s,
         "sim_seconds_per_wall_second": steps * cfg.sim.control_dt / env_s,
     }

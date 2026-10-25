@@ -59,6 +59,11 @@ env:
     velocity_scale: 0.25         # m/s
     clip: 10.0
     actor_global: []             # e.g. [shape_radial] or [contact_map] for ablations
+    contact_normal: true         # +2 dims: unit direction from touched obstacle/wall to the bot
+    range_sensors: false         # +range_num_rays dims: normalised free distance per ray (1 = nothing in range)
+    range_num_rays: 8
+    range_max_in_R: 1.0          # ray length beyond the bot surface
+    range_includes_walls: true
   descriptors:
     shape_sectors: 8
     shape_units: membrane
@@ -68,11 +73,8 @@ env:
   reward:
     progress_weight: 2000.0      # legacy Obstacle Field, per metre of progress
     clip_negative_progress: true # legacy: no penalty for moving away
-    success_radius_in_R: 0.5
-    success_bonus: 10.0
-    use_finish_line: true
-    finish_line_margin_in_R: 2.0
-    finish_line_bonus: 5.0
+    finish_line_margin_in_R: 2.0 # success = centroid crosses x = target_x - margin (legacy "passed target")
+    success_bonus: 5.0           # legacy finish-line bonus
     timeout_penalty: -10.0
     failure_penalty: -10.0       # hypothesis; must be <= timeout_penalty to avoid "fail early" exploits
     contact_penalty_weight: 0.0  # ablation knob (see configs/env/contact_penalty.yaml)

@@ -136,3 +136,24 @@ def test_smoke_training_subprocess_framestack(tmp_path):
                                    "train.critic.frame_stack=2", "train.critic.input=state_and_local",
                                    "train.actor.share_parameters=false"])
     assert summary["episodes"] == 2
+
+
+def test_sweep_grid_expansion():
+    from softbody_marl.cli.sweep import expand_grid
+
+    v = expand_grid(["env.reward.contact_penalty_weight=1,10", "train.actor.frame_stack=1,4"])
+    assert [lbl for lbl, _ in v] == ["contact_penalty_weight1_frame_stack1", "contact_penalty_weight1_frame_stack4",
+                                     "contact_penalty_weight10_frame_stack1", "contact_penalty_weight10_frame_stack4"]
+    assert v[3][1] == ["env.reward.contact_penalty_weight=10", "train.actor.frame_stack=4"]
+    assert expand_grid([]) == [("", [])]
+
+
+def test_sweep_runs_all_seeds_and_compares(tmp_path, capsys):
+    from softbody_marl.cli.sweep import main as sweep_main
+
+    sweep_main(["--configs", str(SMOKE), "--seeds", "0", "1", "--name", "t", "--out", str(tmp_path)])
+    sweep_dir = tmp_path / "sweeps" / "t"
+    index = json.loads((sweep_dir / "sweep.json").read_text())
+    assert [r["seed"] for r in index["runs"]] == [0, 1]
+    table = (sweep_dir / "comparison.md").read_text()
+    assert "| smoke | 2 |" in table

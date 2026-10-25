@@ -29,6 +29,8 @@ softbody-rollout = "softbody_marl.cli.rollout:main"
 softbody-view = "softbody_marl.cli.view:main"
 softbody-train = "softbody_marl.cli.train:main"
 softbody-plot = "softbody_marl.cli.plot:main"
+softbody-sweep = "softbody_marl.cli.sweep:main"
+softbody-compare = "softbody_marl.cli.compare:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

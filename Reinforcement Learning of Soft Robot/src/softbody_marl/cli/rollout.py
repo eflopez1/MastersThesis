@@ -48,8 +48,8 @@ def main(argv: list[str] | None = None) -> None:
         run.log_metrics(rec.metrics)
         if not a.no_trajectories:
             rec.save(run.path / "rollouts" / f"seed_{seed}.npz")
-        run.logger.info("seed %d: success=%s finish=%s progress=%.2f return=%.1f failure=%s", seed,
-                        rec.metrics["success"], rec.metrics["finish_line"], rec.metrics["progress_fraction"],
+        run.logger.info("seed %d: success=%s progress=%.2f return=%.1f failure=%s", seed,
+                        rec.metrics["success"], rec.metrics["progress_fraction"],
                         rec.metrics["return"], rec.metrics["failure_reason"])
     summary = summarize(records)
     run.write_json("summary.json", summary)

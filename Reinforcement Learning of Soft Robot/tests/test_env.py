@@ -35,7 +35,7 @@ def test_observation_semantics(cfg_factory):
     core.reset(seed=0)
     res = core.step(np.tile([0.5, 0.2], (core.n, 1)))
     obs = res.observations
-    assert obs.shape == (core.n, 7) and obs.dtype == np.float32
+    assert obs.shape == (core.n, 9) and obs.dtype == np.float32
     pos = core.world.positions()[core.layout.active_membrane_idx]
     vel = core.world.velocities()[core.layout.active_membrane_idx]
     centroid = pos.mean(axis=0)
@@ -47,7 +47,7 @@ def test_observation_semantics(cfg_factory):
 
 def test_optional_observation_blocks(cfg_factory):
     core = SoftBodyNavCore(cfg_factory("observation.role_encoding=one_hot", "observation.include_absolute_position=true",
-                                       "observation.actor_global=[contact_map]"))
+                                       "observation.actor_global=[contact_map]", "observation.contact_normal=false"))
     obs, _ = core.reset(seed=0)
     assert obs.shape == (core.n, 7 + 2 + core.n + core.cfg.descriptors.contact_sectors)
     np.testing.assert_array_equal(obs[:, 9:9 + core.n], np.eye(core.n))
@@ -79,18 +79,61 @@ def test_contact_map_and_polygon_helpers():
     np.testing.assert_array_equal(inside, [True, False])
 
 
-def test_finish_line_termination(cfg_factory):
+def test_finish_line_crossing_is_success(cfg_factory):
     core = SoftBodyNavCore(cfg_factory("obstacles.enabled=false", "arena.target_distance_in_R=4"))
     core.reset(seed=0)
     for _ in range(core.max_steps):
         res = core.step(np.tile([1.0, 0.0], (core.n, 1)))
         if res.terminated or res.truncated:
             break
-    assert res.terminated and not res.truncated
-    assert res.info["finish_line"] or res.info["success"]
-    assert res.reward_components["finish_line"] + res.reward_components["success"] > 0
+    assert res.terminated and not res.truncated and res.info["success"]
+    assert res.info["centroid"][0] >= core.finish_x
+    assert res.reward_components["success"] == core.cfg.reward.success_bonus
     with pytest.raises(RuntimeError):
         core.step(np.zeros((core.n, 2)))
+
+
+def test_contact_normal_points_away_from_wall(cfg_factory):
+    core = SoftBodyNavCore(cfg_factory("obstacles.enabled=false"))
+    core.reset(seed=0)
+    for _ in range(core.max_steps):
+        res = core.step(np.tile([0.0, 1.0], (core.n, 1)))  # drive into the top wall
+        touching = res.info["active_wall_contact"]
+        normals = res.observations[:, 7:9]
+        if np.any(np.linalg.norm(normals, axis=1) > 0.5):
+            break
+    on = np.linalg.norm(normals, axis=1) > 0.5
+    assert on.any() and np.all(touching[on])
+    pos = core.world.positions()[core.layout.active_membrane_idx][on]
+    W, H = core.cfg.arena.width, core.cfg.arena.height
+    dist = np.stack([pos[:, 0], W - pos[:, 0], pos[:, 1], H - pos[:, 1]], axis=1)  # left, right, bottom, top
+    away = np.array([[1.0, 0.0], [-1.0, 0.0], [0.0, 1.0], [0.0, -1.0]])[np.argmin(dist, axis=1)]
+    np.testing.assert_allclose(normals[on], away, atol=0.1)
+    np.testing.assert_array_equal(normals[~on], 0.0)
+
+
+def test_range_sensors_see_walls_not_own_body(cfg_factory):
+    core = SoftBodyNavCore(cfg_factory("obstacles.enabled=false", "observation.contact_normal=false",
+                                       "observation.range_sensors=true", "observation.range_num_rays=8"))
+    obs, _ = core.reset(seed=0)
+    assert obs.shape == (core.n, 7 + 8)
+    rays = obs[:, 7:15]
+    assert np.all((rays >= 0) & (rays <= 1))
+    leftmost = np.argmin(core.world.positions()[core.layout.active_membrane_idx][:, 0])
+    assert rays[leftmost, 4] < 0.5  # -x ray hits the nearby left wall
+    assert rays[leftmost, 0] == 1.0  # +x ray crosses the robot itself and sees nothing
+    no_walls = SoftBodyNavCore(cfg_factory("obstacles.enabled=false", "observation.contact_normal=false",
+                                           "observation.range_sensors=true", "observation.range_includes_walls=false"))
+    obs2, _ = no_walls.reset(seed=0)
+    np.testing.assert_array_equal(obs2[:, 7:15], 1.0)
+
+
+def test_sensing_flags_change_state_dim(cfg_factory):
+    base = SoftBodyNavCore(cfg_factory("observation.contact_normal=false"))
+    both = SoftBodyNavCore(cfg_factory("observation.contact_normal=true", "observation.range_sensors=true"))
+    assert both.state_dim - base.state_dim == base.n * (2 + both.cfg.observation.range_num_rays)
+    both.reset(seed=0)
+    assert both.global_state().shape == (both.state_dim,)
 
 
 def test_truncation_applies_timeout_penalty(cfg_factory):

@@ -1,0 +1,13 @@
+# Sanity check: free space. A working learner should reach the finish line reliably and faster than
+# constant pushing (19.3 s measured), before obstacle-field results are interpreted.
+base: mappo.yaml
+env:
+  obstacles:
+    enabled: false
+train:
+  ppo:
+    total_env_steps: 300000
+  logging:
+    name: mappo_no_obstacles
+    eval_interval: 25
+    checkpoint_interval: 25

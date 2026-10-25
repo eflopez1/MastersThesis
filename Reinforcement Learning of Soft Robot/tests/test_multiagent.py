@@ -53,8 +53,8 @@ def test_missing_action_rejected(cfg_factory):
 def test_actor_observation_excludes_global_state(cfg_factory):
     env = SoftBodyParallelEnv(cfg_factory())
     obs, _ = env.reset(seed=0)
-    assert obs["bot_0"].shape == (7,)
-    assert env.state().shape[0] > 7 * 5  # critic state holds all bots; actors get 7 local values
+    assert obs["bot_0"].shape == (9,)  # 7 base + 2 contact normal
+    assert env.state().shape[0] > 9 * 5  # critic state holds all bots; actors get local values only
 
 
 def test_baseline_rollout_metrics(cfg_factory):

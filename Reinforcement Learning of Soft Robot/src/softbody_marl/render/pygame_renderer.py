@@ -67,7 +67,7 @@ class PygameRenderer:
             else:
                 pg.draw.circle(s, COLORS["obstacle"], px(ob.center), int(ob.outer_radius * self.ppm))
 
-        pg.draw.circle(s, COLORS["target"], px(f.target), max(int(f.success_radius * self.ppm), 2), 2)
+        pg.draw.line(s, COLORS["target"], px((f.finish_x, 0.0)), px((f.finish_x, f.arena[1])), 2)
         pg.draw.circle(s, COLORS["target"], px(f.target), 4)
 
         for p, r, k, c in zip(f.positions, f.radii, f.kinds, f.env_contact):
