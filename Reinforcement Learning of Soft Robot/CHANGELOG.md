@@ -27,6 +27,12 @@ All notable changes to this project are documented here. The format follows
   - new `media` extra (imageio, imageio-ffmpeg, pillow).
 - README: hero animation, "Watch it" gallery, figures, Mermaid training-loop and architecture diagrams.
 - `docs/review_guide.md`: ordered self-study guide to the codebase.
+- **Game mode** (`softbody-play`, `src/softbody_marl/game/`):
+  - keyboard control: arrows move; flatten wide/tall, squeeze, expand and gyrate on letter keys;
+  - mapped to per-bot forces within the agents' action limits;
+  - fog of war: obstacles hidden, surfaces revealed by touch, fading with optional memory;
+  - retry/next-layout/pause, best times, and optional MP4 recording of play.
+- `AmoebaRenderer` gains `show_obstacles`, an `overlay` hook and `manage_display=False` for embedding.
 
 ### Changed
 - **Success is now crossing the finish line** at `target_x − finish_line_margin_in_R · R` (default 2 R), with bonus

@@ -29,6 +29,7 @@ The package (`softbody_marl`) gives you:
 - [The robot](#the-robot)
 - [The task](#the-task)
 - [Watch it](#watch-it)
+- [Play it](#play-it)
 - [Multi-agent formulation](#multi-agent-formulation)
 - [Reward](#reward)
 - [Training paradigm](#training-paradigm)
@@ -95,6 +96,30 @@ control step at 20 fps). Click a preview for the full MP4.
 | [<img src="docs/media/push_x_schematic.gif" width="360">](docs/media/push_x_schematic.mp4)<br>**Schematic view (push +x):** red = active bot, blue = skin, grey = interior, yellow ring = contact, orange = force. | **Amoeba style legend:** glowing membrane = spline through the membrane units; bright beads = active bots, brighter when pushing harder; warm sparks = contact; granules = interior particles; nucleus and trail are decorative. |
 
 Record your own: `softbody-record --checkpoint <best.pt> --style amoeba --view 3.2 1.8 --ppm 300 --out my.mp4`.
+
+## Play it
+
+```bash
+softbody-play                     # obstacles hidden: the field reveals itself where you touch it
+softbody-play --no-fog --seed 3   # see everything; any layout seed
+softbody-play --record run.mp4    # save your attempt
+```
+
+| Hold | Effect (every bot's force command) |
+|---|---|
+| arrows | push the whole body in that direction |
+| `Z` / `X` | flatten wide (top and bottom squeeze together) / flatten tall (left and right squeeze together) |
+| `S` / `E` | squeeze toward the centroid / expand away from it |
+| `G` | gyrate: a random direction per bot each step, to shake loose when stuck |
+
+Press `F` fog on/off, `M` contact memory, `R` retry, `N` next layout, `P` pause, `H` help, `Esc` quit. Held keys
+combine (e.g. right + `Z`).
+
+The game drives the same `SoftBodyNavCore` and the same per-bot action limits as the RL agents, so your attempts
+are directly comparable to learned policies. Input is read every 0.05 s (10 physics substeps; the physics timestep
+is unchanged), compared with 0.25 s for the agents. Squeeze and expand are produced by the bots' own forces;
+stiffness is not changed. With fog on, touched obstacle surfaces glow and fade over about 3 s. With memory on, a
+faint trace of everything discovered remains.
 
 ## Multi-agent formulation
 

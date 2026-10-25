@@ -63,13 +63,15 @@ def offset_closed(curve: np.ndarray, distance: float, center: np.ndarray) -> np.
 class AmoebaRenderer:
     def __init__(self, pixels_per_meter: float = 100.0, headless: bool = True, fps: int = 0,
                  supersample: int = 2, seed: int = 0, show_hud: bool = True, title: str | None = None,
-                 view_m: tuple[float, float] | None = None, trail_steps: int = 60):
-        """``view_m``: (width, height) in metres of a camera window that follows the cell; None = whole arena."""
-        if headless:
+                 view_m: tuple[float, float] | None = None, trail_steps: int = 60, manage_display: bool = True):
+        """``view_m``: (width, height) in metres of a camera window that follows the cell; None = whole arena.
+        ``manage_display=False``: render to an offscreen ``self.screen`` only (for embedding in a game loop)."""
+        if headless and manage_display:
             os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
         import pygame
 
         self.pg = pygame
+        self.manage_display = manage_display
         self.ppm = pixels_per_meter
         self.ss = supersample
         self.headless = headless
@@ -141,22 +143,24 @@ class AmoebaRenderer:
         return surf
 
     # ------------------------------------------------------------------ main
-    def draw(self, f: RenderFrame, return_array: bool = False):
+    def draw(self, f: RenderFrame, return_array: bool = False, show_obstacles: bool = True, overlay=None):
+        """``overlay(canvas, to_px, k)`` is called after obstacles are drawn; ``to_px`` maps (n, 2) metres to pixels."""
         pg = self.pg
         W, H = f.arena
         k = self.ppm * self.ss
         vw, vh = self.view_m if self.view_m else (W, H)
         vw, vh = min(vw, W), min(vh, H)
         out = (int(vw * self.ppm), int(vh * self.ppm))
+        own_window = self.manage_display and not self.headless
         if self.screen is None:
             pg.init()
             pg.font.init()
             self.font = pg.font.SysFont("Helvetica", max(int(out[1] / 36), 10))
             self.title_font = pg.font.SysFont("Helvetica", max(int(out[1] / 24), 12), bold=True)
-            self.screen = pg.Surface(out) if self.headless else pg.display.set_mode(out)
+            self.screen = pg.display.set_mode(out) if own_window else pg.Surface(out)
             self.canvas = pg.Surface((int(vw * k), int(vh * k)))
             self.bg_world = self._world_background(W, H)
-        if not self.headless:
+        if own_window:
             for event in pg.event.get():
                 if event.type == pg.QUIT or (event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE):
                     self.closed = True
@@ -192,7 +196,7 @@ class AmoebaRenderer:
         # Obstacles: shadow, filled body, highlighted rim.
         shadow_off = np.array([0.02, 0.02]) * k
         edge_w = max(int(f.segment_radius * k), 2)
-        for ob in f.obstacles:
+        for ob in (f.obstacles if show_obstacles else []):
             if f.obstacle_shape == "star":
                 pts = self._pts(np.asarray(ob.vertices))
                 if not self._visible(pts, 0.1 * k):
@@ -205,6 +209,8 @@ class AmoebaRenderer:
                 self._alpha_circle(c, (*PALETTE["shadow"], 90), np.add(cp, shadow_off), ob.outer_radius * k)
                 pg.draw.circle(c, PALETTE["rock"], cp, int(ob.outer_radius * k))
                 pg.draw.circle(c, PALETTE["rock_edge"], cp, int(ob.outer_radius * k), edge_w)
+        if overlay is not None:
+            overlay(c, self._pts, k)
 
         # Slime trail: fading history of centroid positions.
         self._trail.append(np.asarray(f.centroid, dtype=float).copy())
@@ -260,7 +266,7 @@ class AmoebaRenderer:
             hud = f"t = {f.time:5.1f} s   contacts = {int(np.sum(f.env_contact[f.active_idx]))}"
             surf = self.font.render(hud, True, PALETTE["text"])
             screen.blit(surf, (pad, out[1] - surf.get_height() - pad))
-        if not self.headless:
+        if own_window:
             pg.display.flip()
             if self.fps:
                 self.clock.tick(self.fps)
@@ -269,7 +275,7 @@ class AmoebaRenderer:
         return None
 
     def close(self):
-        if self.screen is not None:
+        if self.screen is not None and self.manage_display:
             self.pg.display.quit()
             self.pg.quit()
-            self.screen = None
+        self.screen = None

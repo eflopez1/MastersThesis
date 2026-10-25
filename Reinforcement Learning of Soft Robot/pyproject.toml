@@ -33,6 +33,7 @@ softbody-plot = "softbody_marl.cli.plot:main"
 softbody-sweep = "softbody_marl.cli.sweep:main"
 softbody-compare = "softbody_marl.cli.compare:main"
 softbody-record = "softbody_marl.cli.record:main"
+softbody-play = "softbody_marl.cli.play:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
