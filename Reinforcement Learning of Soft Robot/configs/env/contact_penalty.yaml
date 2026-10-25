@@ -1,0 +1,6 @@
+# Ablation: penalise the fraction of active bots touching obstacles/walls each control step.
+# The weight is a hypothesis; compare against default.yaml (weight 0).
+base: default.yaml
+env:
+  reward:
+    contact_penalty_weight: 1.0

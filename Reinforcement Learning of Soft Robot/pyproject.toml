@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "softbody-marl"
+version = "0.1.0"
+description = "Multi-agent reinforcement learning for a granular-jammed soft robot (JAMoEBA-style) navigating obstacle fields."
+readme = "README.md"
+requires-python = ">=3.10,<3.15"
+license = { text = "Proprietary - research use" }
+dependencies = [
+    "numpy>=2.0,<3",
+    "pymunk>=7.3,<8",
+    "gymnasium>=1.2,<2",
+    "pettingzoo>=1.27,<2",
+    "pyyaml>=6.0,<7",
+]
+
+[project.optional-dependencies]
+render = ["pygame-ce>=2.5,<3"]
+train = ["torch>=2.6,<3", "matplotlib>=3.9,<4"]
+dev = ["pytest>=8,<10"]
+all = ["softbody-marl[render,train,dev]"]
+
+[project.scripts]
+softbody-benchmark = "softbody_marl.cli.benchmark:main"
+softbody-rollout = "softbody_marl.cli.rollout:main"
+softbody-view = "softbody_marl.cli.view:main"
+softbody-train = "softbody_marl.cli.train:main"
+softbody-plot = "softbody_marl.cli.plot:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = ["slow: longer-running physics checks"]

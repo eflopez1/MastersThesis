@@ -1,0 +1,64 @@
+# Reference experiment: parameter-shared MAPPO with a centralised critic on env.state().
+# Every train value equals the dataclass default and is written out for self-documentation.
+# Ablations inherit from this file via `base:` and change only what they study.
+base: ../env/default.yaml
+
+train:
+  algorithm: mappo
+  device: cpu               # small MLPs: CPU is faster than MPS for this workload
+  torch_threads: 1
+  actor:
+    share_parameters: true  # one policy for all bots
+    log_std_init: -0.5
+    min_log_std: -5.0
+    max_log_std: 1.0
+    frame_stack: 1
+    network:
+      hidden_sizes: [64, 64]
+      activation: tanh
+      layer_norm: false
+      output_gain: 0.01
+  critic:
+    input: state            # state | state_and_local | local (IPPO)
+    frame_stack: 1
+    network:
+      hidden_sizes: [256, 256]
+      activation: tanh
+      layer_norm: false
+      output_gain: 1.0
+  ppo:
+    total_env_steps: 2000000   # control steps summed over envs (x10 agent samples)
+    num_envs: 8
+    vectorization: subprocess
+    rollout_steps: 128
+    epochs: 10
+    minibatches: 4
+    learning_rate: 3.0e-4
+    lr_schedule: constant
+    adam_eps: 1.0e-5
+    gamma: 0.99               # 0.25 s control step -> ~25 s effective horizon
+    gae_lambda: 0.95
+    clip_coef: 0.2
+    value_clip_coef: 0.0
+    entropy_coef: 0.0
+    value_coef: 0.5
+    max_grad_norm: 0.5
+    target_kl: 0.0
+    normalize_advantages: true
+    normalize_observations: true
+    normalize_values: true
+    reward_scale: 1.0
+  seeds:
+    seed: 0
+    train: [0, 10000]          # obstacle-layout seeds; must be disjoint from validation and test
+    validation: [10000, 10020] # model selection (best.pt)
+    test: [20000, 20100]       # reported once at the end, on best.pt
+  logging:
+    out_dir: runs
+    group: train
+    name: mappo
+    log_interval: 1
+    eval_interval: 50          # 20 validation episodes take ~25 s on an M2 (~18 updates of training)
+    checkpoint_interval: 50
+    save_eval_trajectories: false
+    final_test: true

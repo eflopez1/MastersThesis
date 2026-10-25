@@ -1,0 +1,7 @@
+# Ablation: agent-specific global critic input V(s, o_i).
+base: mappo.yaml
+train:
+  critic:
+    input: state_and_local
+  logging:
+    name: mappo_agent_specific_critic

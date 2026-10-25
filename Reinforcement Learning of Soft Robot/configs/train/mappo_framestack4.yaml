@@ -1,0 +1,7 @@
+# Ablation: actors see the last 4 local observations (0.75 s of history).
+base: mappo.yaml
+train:
+  actor:
+    frame_stack: 4
+  logging:
+    name: mappo_framestack4

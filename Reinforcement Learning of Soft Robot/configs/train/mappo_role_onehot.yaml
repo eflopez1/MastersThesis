@@ -1,0 +1,8 @@
+# Ablation: actors know their ring position (one-hot) so the shared policy can specialise by role.
+base: mappo.yaml
+env:
+  observation:
+    role_encoding: one_hot
+train:
+  logging:
+    name: mappo_role_onehot

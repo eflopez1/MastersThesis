@@ -1,0 +1,26 @@
+# Smoke test: exercises the full pipeline in seconds. Not a meaningful experiment.
+base: mappo.yaml
+env:
+  episode:
+    max_time_s: 2.0
+train:
+  actor:
+    network:
+      hidden_sizes: [16]
+  critic:
+    network:
+      hidden_sizes: [16]
+  ppo:
+    total_env_steps: 64
+    num_envs: 2
+    vectorization: sync
+    rollout_steps: 16
+    epochs: 2
+    minibatches: 2
+  seeds:
+    validation: [10000, 10002]
+    test: [20000, 20002]
+  logging:
+    name: smoke
+    eval_interval: 1
+    checkpoint_interval: 1

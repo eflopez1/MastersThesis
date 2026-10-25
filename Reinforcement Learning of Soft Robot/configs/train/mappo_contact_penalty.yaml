@@ -1,0 +1,11 @@
+# Ablation: penalise the fraction of active bots touching obstacles/walls each control step.
+# Scale note: with progress_weight 2000 the push_x baseline earns ~23 reward per step, so a weight
+# of 1 would be ~1% of the signal. 10 is a starting hypothesis; sweep with
+#   --set env.reward.contact_penalty_weight=<w>
+base: mappo.yaml
+env:
+  reward:
+    contact_penalty_weight: 10.0
+train:
+  logging:
+    name: mappo_contact_penalty

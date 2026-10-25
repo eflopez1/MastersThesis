@@ -1,0 +1,10 @@
+# Ablation: decentralised critic V(o_i) (independent PPO with shared parameters).
+base: mappo.yaml
+train:
+  algorithm: ippo
+  critic:
+    input: local
+    network:
+      hidden_sizes: [64, 64]
+  logging:
+    name: ippo

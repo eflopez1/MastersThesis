@@ -1,0 +1,7 @@
+# Ablation: separate actor weights per bot (no parameter sharing).
+base: mappo.yaml
+train:
+  actor:
+    share_parameters: false
+  logging:
+    name: mappo_no_sharing

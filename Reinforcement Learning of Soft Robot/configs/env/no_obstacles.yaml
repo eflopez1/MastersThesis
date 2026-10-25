@@ -1,0 +1,5 @@
+# Obstacle-free field: calibration of baseline speed and episode time limit.
+base: default.yaml
+env:
+  obstacles:
+    enabled: false

@@ -1,0 +1,5 @@
+# Nominal SI dynamics: springs, actuation and ground friction at their stated SI values (150x the legacy effective forces).
+base: default.yaml
+env:
+  sim:
+    force_scale: 1.0
