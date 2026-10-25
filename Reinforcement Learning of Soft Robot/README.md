@@ -5,6 +5,12 @@ actuated "bots" and passive skin units that holds loose interior particles. Each
 chooses a planar force. Together they must move and deform the shared body through a randomised obstacle field to a
 target.
 
+<p align="center">
+  <img src="docs/media/target_seek_amoeba.gif" width="480" alt="Amoeba-style rendering of the soft robot squeezing between star obstacles"><br>
+  <em>Amoeba-style rendering of a real simulation (scripted target-seeking controller, test layout 20000).
+  The styling is cosmetic; see <a href="#watch-it">Watch it</a> for the plain physics view.</em>
+</p>
+
 The package (`softbody_marl`) gives you:
 - a headless, seeded Pymunk 7 simulation in SI units;
 - a PettingZoo `ParallelEnv`;
@@ -22,6 +28,7 @@ The package (`softbody_marl`) gives you:
 ## Contents
 - [The robot](#the-robot)
 - [The task](#the-task)
+- [Watch it](#watch-it)
 - [Multi-agent formulation](#multi-agent-formulation)
 - [Reward](#reward)
 - [Training paradigm](#training-paradigm)
@@ -35,6 +42,8 @@ The package (`softbody_marl`) gives you:
 ---
 
 ## The robot
+
+![Labelled robot components pressed against a star obstacle](docs/media/components.png)
 
 | Component | Default | Role |
 |---|---|---|
@@ -55,6 +64,8 @@ derivation and measurements.
 
 ## The task
 
+![Obstacle-field task: start, star obstacles, finish line and target](docs/media/arena.png)
+
 **Obstacle-field navigation.**
 - **Start and target:** the body starts near the left wall. The target is 25 R (6.17 m) straight ahead.
 - **Obstacles:** hollow 5-point stars (outer radius 2R), placed by Poisson-disk sampling (minimum spacing 4.5 R), randomly rotated. Obstacles that would overlap the start pose are rejected.
@@ -69,6 +80,21 @@ derivation and measurements.
 
 The core class `SoftBodyNavCore` (`reset(seed, obstacles=...)`, `step(actions)`, `frame()`) has no RL dependency.
 Hand-made levels can be passed as `obstacles`. A renderer or a future human-input game loop can drive the same core.
+
+## Watch it
+
+Each clip is one real episode, recorded with `softbody-record` / [scripts/make_media.py](scripts/make_media.py).
+All use the same test layout (seed 20000) except the free-space policy. They are illustrations, not performance
+evidence; see [Current results](#current-results) for statistics. Video runs at 5× real time (one frame per 0.25 s
+control step at 20 fps). Click a preview for the full MP4.
+
+| | |
+|---|---|
+| [<img src="docs/media/push_x_amoeba.gif" width="360">](docs/media/push_x_amoeba.mp4)<br>**Push +x:** every bot pushes right. The body wraps around and gets stuck on a star (60 s, 38 % progress). | [<img src="docs/media/target_seek_amoeba.gif" width="360">](docs/media/target_seek_amoeba.mp4)<br>**Target-seek:** every bot pushes toward the target. It gets further on this layout (60 s, 53 % progress). |
+| [<img src="docs/media/random_amoeba.gif" width="360">](docs/media/random_amoeba.mp4)<br>**Random forces:** shows how the soft body jiggles and deforms without coordination (20 s). | [<img src="docs/media/learned_free_space_amoeba.gif" width="360">](docs/media/learned_free_space_amoeba.mp4)<br>**Learned MAPPO policy (free space):** reaches the finish line in 18.75 s (constant push: 19.25 s). |
+| [<img src="docs/media/push_x_schematic.gif" width="360">](docs/media/push_x_schematic.mp4)<br>**Schematic view (push +x):** red = active bot, blue = skin, grey = interior, yellow ring = contact, orange = force. | **Amoeba style legend:** glowing membrane = spline through the membrane units; bright beads = active bots, brighter when pushing harder; warm sparks = contact; granules = interior particles; nucleus and trail are decorative. |
+
+Record your own: `softbody-record --checkpoint <best.pt> --style amoeba --view 3.2 1.8 --ppm 300 --out my.mp4`.
 
 ## Multi-agent formulation
 
@@ -118,13 +144,22 @@ signal. The contact-penalty ablation uses 10 as a starting hypothesis; sweep it.
 
 **Centralised training, decentralised execution** with PPO (`src/softbody_marl/training/`):
 
+```mermaid
+flowchart LR
+    subgraph ENV["Environment (8 parallel processes)"]
+        SIM["Pymunk soft body<br/>50 substeps x 5 ms"]
+    end
+    SIM -- "local obs o_i (9-d), one per bot" --> ACT["Shared actor π(a_i | o_i)<br/>MLP 64-64, Gaussian"]
+    ACT -- "force command a_i ∈ [-1,1]²" --> SIM
+    SIM -- "global state s (124-d)" --> CRIT["Critic V(s)<br/>MLP 256-256"]
+    SIM -- "team reward r" --> GAE["GAE advantages"]
+    CRIT --> GAE
+    GAE --> PPO["PPO update<br/>clip 0.2, 10 epochs"]
+    PPO -. "new weights" .-> ACT
+    PPO -. "new weights" .-> CRIT
 ```
-          local obs o_i (9-d)                        global state s (124-d)
-bot_i ───────────────────────► shared actor π(a_i|o_i)        │
-                                   │ Gaussian force           ▼
-                                   ▼                  critic V(s) / V(s,o_i) / V(o_i)
-                         env (10 agents, team reward) ──► GAE advantages ──► PPO update
-```
+
+At execution time only the actor is used, and each bot sees only its own observation.
 
 - **Actor:** one MLP shared by all bots by default (`share_parameters: false` gives a separate actor per bot). It
   outputs a diagonal Gaussian with a learned, state-independent standard deviation. At evaluation time the mean action
@@ -260,13 +295,33 @@ All numbers were measured on an Apple M2 (8 cores) with Python 3.13 and are repr
 | zero | 0 % | 0.00 | 0 % | 0 % |
 | MAPPO probe (102k env steps, ≈5 % of budget, contact-flag-only observation) | 10 % | 0.41 ± 0.24 | 1 % | 72 % |
 
-In free space (`mappo_no_obstacles.yaml`, 300k steps), MAPPO reaches the finish line in 100 % of test episodes in
-20.75 s, comparable to constant pushing (19.3 s).
+In free space (`mappo_no_obstacles.yaml`, 300k steps, 9-d observation), MAPPO reaches the finish line in 100 % of test
+episodes in 18.75 s, slightly faster than constant pushing (19.25 s).
 
 The short MAPPO probe does not yet beat the scripted controllers. Its learning diagnostics were healthy (explained
 variance 0.8–0.9, KL ≈ 0.003).
 
 ## Repository layout
+
+```mermaid
+flowchart TB
+    CFG["config.py + configs/*.yaml<br/>(typed, validated)"] --> CORE
+    subgraph PHYS["physics/ (Pymunk, no RL)"]
+        GEO["geometry.py<br/>body layout, obstacle sampling"] --> WORLD["world.py<br/>bodies, links, friction, contacts, sensing"]
+    end
+    WORLD --> CORE["env/core.py SoftBodyNavCore<br/>reset / step / frame"]
+    OBS["env/observations.py<br/>env/descriptors.py<br/>env/reward.py"] --> CORE
+    CORE --> PZ["env/pettingzoo_env.py<br/>ParallelEnv"]
+    CORE --> EVAL["evaluation/rollout.py<br/>metrics"]
+    CORE -- "RenderFrame" --> REND["render/<br/>schematic, amoeba, video"]
+    PZ --> VEC["training/vec_env.py"] --> MAPPO["training/mappo.py<br/>networks.py"]
+    MAPPO --> POL["training/policy.py<br/>PolicyController"]
+    CTRL["control/controllers.py<br/>baselines"] --> EVAL
+    POL --> EVAL
+    CLI["cli/ softbody-*"] --> MAPPO
+    CLI --> EVAL
+    CLI --> REND
+```
 
 ```
 src/softbody_marl/
@@ -277,11 +332,12 @@ src/softbody_marl/
   control/               Controller protocol and scripted baselines
   training/              train config, vectorised envs, networks, MAPPO trainer, policy loading
   evaluation/            rollouts, task metrics, summaries
-  render/                optional pygame renderer (consumes RenderFrame snapshots only)
-  cli/                   softbody-{train,sweep,compare,rollout,view,benchmark,plot}
+  render/                schematic + amoeba renderers, MP4/GIF recording (consume RenderFrame snapshots only)
+  cli/                   softbody-{train,sweep,compare,rollout,view,record,benchmark,plot}
 configs/env/, configs/train/   experiment definitions
+scripts/                       local campaign, README media generation
 tests/                         pytest suite
-docs/                          environment spec, ADRs, legacy audit
+docs/                          environment spec, ADRs, legacy audit, AWS plan, review guide, media/
 deprecated/                    legacy thesis code kept for reference only (not imported)
 runs/                          experiment outputs (git-ignored)
 ```
@@ -296,4 +352,5 @@ runs/                          experiment outputs (git-ignored)
 - [deprecated/README.md](deprecated/README.md): legacy tasks (tunnel, object manipulation), reward variants and
   hyperparameters not yet ported.
 - [docs/aws_plan.md](docs/aws_plan.md): how to run sweeps on AWS (instance choice, budget, spot/resume, S3 sync).
+- [docs/review_guide.md](docs/review_guide.md): guided, ordered code review with takeaways and self-check questions.
 - [CHANGELOG.md](CHANGELOG.md): release history.

@@ -19,6 +19,14 @@ All notable changes to this project are documented here. The format follows
   `configs/env/range_sensing.yaml`, `configs/train/mappo_range_sensing.yaml` and `configs/train/mappo_no_sensing.yaml`.
 - `softbody-sweep --grid key=v1,v2` expands Cartesian-product variants (e.g. contact-penalty weights).
 - `scripts/local_campaign.sh`: staged multi-day local ablation campaign.
+- Visual media:
+  - amoeba-style renderer (`render/amoeba_renderer.py`) with a follow camera;
+  - MP4/GIF recording (`render/video.py`, `softbody-record`);
+  - `scripts/make_media.py`, which regenerates `docs/media/` (annotated component and arena figures, a video per
+    baseline and for a learned free-space policy);
+  - new `media` extra (imageio, imageio-ffmpeg, pillow).
+- README: hero animation, "Watch it" gallery, figures, Mermaid training-loop and architecture diagrams.
+- `docs/review_guide.md`: ordered self-study guide to the codebase.
 
 ### Changed
 - **Success is now crossing the finish line** at `target_x − finish_line_margin_in_R · R` (default 2 R), with bonus
